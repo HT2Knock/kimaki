@@ -3466,6 +3466,17 @@ export class ThreadSessionRuntime {
     return { found: true, removed: false }
   }
 
+  /** Remove a queued message identified by its Discord source message ID. */
+  removeQueuedMessage(
+    sourceMessageId: string,
+  ): threadState.QueuedMessage | undefined {
+    return threadState.updateQueueItemBySourceMessageId(
+      this.threadId,
+      sourceMessageId,
+      () => null,
+    )
+  }
+
   // ── Queue Drain ─────────────────────────────────────────────
 
   /**

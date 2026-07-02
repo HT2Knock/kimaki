@@ -851,7 +851,10 @@ export async function startDiscordBot({
 
         // Notify when a voice message was queued instead of sent immediately
         if (enqueueResult.queued && enqueueResult.position) {
-          await sendThreadMessage(thread, `Queued at position ${enqueueResult.position}. Edit your message to update it in queue`)
+          await sendThreadMessage(
+            thread,
+            `Queued at position ${enqueueResult.position}. Edit or delete your message to update the queue`,
+          )
         }
       }
 
@@ -1126,6 +1129,35 @@ export async function startDiscordBot({
     } catch (error) {
       discordLogger.error(
         'Error handling message update:',
+        error instanceof Error ? error.stack : String(error),
+      )
+    }
+  })
+
+  // Handle user message deletes to remove queued messages.
+  // Discord delete events do not include author/content, so attribution comes
+  // from the queued item captured at enqueue time.
+  discordClient.on(Events.MessageDelete, async (message) => {
+    try {
+      const channel = message.channel
+      if (!channel.isThread()) return
+
+      const runtime = getRuntime(channel.id)
+      if (!runtime) return
+
+      const removed = runtime.removeQueuedMessage(message.id)
+      if (!removed) return
+
+      discordLogger.log(
+        `[MESSAGE_DELETE] Removed queued message ${message.id} in thread ${channel.id}`,
+      )
+      await sendThreadMessage(
+        channel,
+        `⬦ **${removed.username}** removed message from queue`,
+      )
+    } catch (error) {
+      discordLogger.error(
+        'Error handling message delete:',
         error instanceof Error ? error.stack : String(error),
       )
     }

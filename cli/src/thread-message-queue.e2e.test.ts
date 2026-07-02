@@ -1449,7 +1449,7 @@ e2eTest('thread message queue ordering', () => {
         --- from: user (queue-tester)
         Reply with exactly: edited-queued. queue
         --- from: assistant (TestBot)
-        Queued at position 1. Edit your message to update it in queue
+        Queued at position 1. Edit or delete your message to update the queue
         ⬦ **queue-tester** edited queued message
         ⬥ slow-busy-reply
         *project ⋅ main ⋅ Ns ⋅ N% ⋅ deterministic-v2*
@@ -1557,7 +1557,7 @@ e2eTest('thread message queue ordering', () => {
         --- from: user (queue-tester)
         Reply with exactly: will-be-removed
         --- from: assistant (TestBot)
-        Queued at position 1. Edit your message to update it in queue
+        Queued at position 1. Edit or delete your message to update the queue
         ⬦ **queue-tester** removed message from queue
         ⬥ slow-busy-reply
         *project ⋅ main ⋅ Ns ⋅ N% ⋅ deterministic-v2*"
