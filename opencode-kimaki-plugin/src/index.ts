@@ -21,5 +21,28 @@
 // The plugin stores credentials in ~/.local/share/opencode/auth.json
 // and account rotation state in anthropic-oauth-accounts.json.
 // No SQLite, no Discord bot, no extra infrastructure required.
+//
+// Dedup guard: when running inside kimaki (KIMAKI=1 env var), these plugins
+// are already loaded by kimaki's own plugin entry point. OpenCode's server
+// plugin loader has no ID-based dedup (unlike TUI plugins), so without this
+// guard both instances would register, causing double auth providers, double
+// system prompt transforms, and double response stream wrapping.
 
-export { anthropicAuthPlugin, replacer } from 'kimaki/anthropic-auth-plugin'
+import {
+  anthropicAuthPlugin as _anthropicAuthPlugin,
+  replacer as _replacer,
+} from 'kimaki/anthropic-auth-plugin'
+
+type PluginFn = (...args: unknown[]) => Promise<Record<string, unknown>>
+
+const anthropicAuthPlugin: PluginFn = async (...args) => {
+  if (process.env.KIMAKI) return {}
+  return _anthropicAuthPlugin(...args)
+}
+
+const replacer: PluginFn = async (...args) => {
+  if (process.env.KIMAKI) return {}
+  return _replacer(...args)
+}
+
+export { anthropicAuthPlugin, replacer }
