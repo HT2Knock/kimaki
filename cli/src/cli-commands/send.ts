@@ -105,6 +105,10 @@ cli
     'Post prompt to thread mapped to an existing session',
   )
   .option(
+    '--parent-session <sessionId>',
+    'Parent OpenCode session ID for newly created child sessions',
+  )
+  .option(
     '--wait',
     'Wait for session to complete, then print session text to stdout',
   )
@@ -427,6 +431,7 @@ cli
               userId: null,
               permissions: options.permission?.length ? options.permission : null,
               injectionGuardPatterns: options.injectionGuard?.length ? options.injectionGuard : null,
+              parentSessionId: options.parentSession || null,
             }
             const taskId = await createScheduledTask({
               scheduleKind: parsedSchedule.scheduleKind,
@@ -458,6 +463,7 @@ cli
             ...(options.model && { model: options.model }),
             ...(options.permission?.length ? { permissions: options.permission } : {}),
             ...(options.injectionGuard?.length ? { injectionGuardPatterns: options.injectionGuard } : {}),
+            ...(options.parentSession && { parentSessionId: options.parentSession }),
           }
           const promptEmbed = [
             {
@@ -596,6 +602,7 @@ cli
             userId: resolvedUser?.id || null,
             permissions: options.permission?.length ? options.permission : null,
             injectionGuardPatterns: options.injectionGuard?.length ? options.injectionGuard : null,
+            parentSessionId: options.parentSession || null,
           }
           const taskId = await createScheduledTask({
             scheduleKind: parsedSchedule.scheduleKind,
@@ -634,6 +641,7 @@ cli
               ...(options.model && { model: options.model }),
               ...(options.permission?.length && { permissions: options.permission }),
               ...(options.injectionGuard?.length && { injectionGuardPatterns: options.injectionGuard }),
+              ...(options.parentSession && { parentSessionId: options.parentSession }),
             }
         const autoStartEmbed = embedMarker
           ? [{ color: 0x2b2d31, footer: { text: YAML.stringify(embedMarker) } }]

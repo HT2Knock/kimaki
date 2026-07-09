@@ -261,6 +261,12 @@ export type ThreadStartMarker = {
    * can check per-session whether scanning is enabled.
    */
   injectionGuardPatterns?: string[]
+  /**
+   * OpenCode session ID of the parent session that spawned this thread via
+   * `kimaki send --parent-session`. Exposed in the child system message so the
+   * child can message the parent only when the user explicitly asks.
+   */
+  parentSessionId?: string
 }
 
 export function isInjectedPromptMarker({
@@ -363,6 +369,7 @@ export function getOpencodeSystemMessage({
   channelTopic,
   agents,
   userId,
+  parentSessionId,
 }: {
   sessionId: string
   channelId?: string
@@ -374,8 +381,16 @@ export function getOpencodeSystemMessage({
   agents?: AgentInfo[]
   username?: string
   userId?: string
+  /**
+   * Parent OpenCode session from explicit `kimaki send --parent-session` only.
+   * Must stay undefined for /btw forks, /fork, task/subagent children, and
+   * normal threads so the shared system prompt cache is not busted by a
+   * per-parent block. Never auto-derive this from OpenCode parent session IDs.
+   */
+  parentSessionId?: string
 }) {
   const userArg = ` --user '${userId || '<discord-user-id>'}'`
+  const parentSessionArg = ` --parent-session ${sessionId}`
   const topicContext = channelTopic?.trim()
     ? `\n\n<channel-topic>\n${channelTopic.trim()}\n</channel-topic>`
     : ''
@@ -387,6 +402,11 @@ export function getOpencodeSystemMessage({
           })
           .join('\n')}`
       : ''
+  // Opt-in only. Empty by default so /btw, task subagents, and normal sessions
+  // keep the same system prompt prefix as their parent for cache hits.
+  const parentSessionContext = parentSessionId
+    ? `\nYour parent OpenCode session ID is: ${parentSessionId}\nYou can send a message back to the parent session with:\nkimaki send --session ${parentSessionId} --prompt 'your update here' --agent <current_agent>\nDo NOT message the parent session unless the user explicitly asks you to.`
+    : ''
   return `
 The user is reading your messages from inside Discord, via kimaki.dev
 
@@ -409,7 +429,7 @@ interface BashToolInput {
 \`description\` is shown to the user in Discord as a summary of the bash call.
 \`hasSideEffect\` distinguishes essential bash calls from read-only ones in low-verbosity mode.
 
-Your current OpenCode session ID is: ${sessionId}${channelId ? `\nYour current Discord channel ID is: ${channelId}` : ''}${threadId ? `\nYour current Discord thread ID is: ${threadId}` : ''}${guildId ? `\nYour current Discord guild ID is: ${guildId}` : ''}
+Your current OpenCode session ID is: ${sessionId}${channelId ? `\nYour current Discord channel ID is: ${channelId}` : ''}${threadId ? `\nYour current Discord thread ID is: ${threadId}` : ''}${guildId ? `\nYour current Discord guild ID is: ${guildId}` : ''}${parentSessionContext}
 
 Per-turn Discord metadata like the current user and current agent is delivered in synthetic user message parts.
 
@@ -496,9 +516,10 @@ ${
 
 To start a new thread/session in this channel pro-grammatically, run:
 
-kimaki send --channel ${channelId} --prompt 'your prompt here' --agent <current_agent>${userArg}
+kimaki send --channel ${channelId} --prompt 'your prompt here' --agent <current_agent>${parentSessionArg}${userArg}
 
 You can use this to "spawn" parallel helper sessions like teammates: start new threads with focused prompts, then come back and collect the results.
+ALWAYS pass \`--parent-session ${sessionId}\` (your current session ID) when starting a new session from this one. The child system message will include the parent session ID so it can message back only if the user asks.
 Prefer passing the current agent with \`--agent <current_agent>\` so spawned or scheduled sessions keep the same agent unless you are intentionally switching. Replace \`<current_agent>\` with the value from the per-turn \`Current agent\` reminder.
 When writing \`kimaki send\` shell commands, use single quotes around \`--prompt\`, \`--user\`, \`--send-at\`, and other literal arguments so backticks inside prompts are not interpreted by the shell. Prefer \`--user '<discord-user-id>'\` over \`--user 'name'\` because name lookup depends on optional Server Members Intent.
 
@@ -526,17 +547,18 @@ kimaki send --channel ${channelId} --prompt 'User cancelled subscription' --noti
 
 Use --user with a Discord user ID or raw mention to add a specific Discord user to the new thread:
 
-kimaki send --channel ${channelId} --prompt 'Review the latest CI failure' --agent <current_agent>${userArg}
+kimaki send --channel ${channelId} --prompt 'Review the latest CI failure' --agent <current_agent>${parentSessionArg}${userArg}
 
 Use --worktree to create a git worktree for the session (ONLY when the user explicitly asks for a worktree):
 
-kimaki send --channel ${channelId} --prompt 'Add dark mode support' --worktree dark-mode --agent <current_agent>${userArg}
+kimaki send --channel ${channelId} --prompt 'Add dark mode support' --worktree dark-mode --agent <current_agent>${parentSessionArg}${userArg}
 
 Use --cwd to start a session in an existing project subfolder or git worktree directory:
 
-kimaki send --channel ${channelId} --prompt 'Run the restricted task' --cwd /path/to/project/restricted-task --agent <current_agent>${userArg}
+kimaki send --channel ${channelId} --prompt 'Run the restricted task' --cwd /path/to/project/restricted-task --agent <current_agent>${parentSessionArg}${userArg}
 
 Important:
+- ALWAYS pass \`--parent-session ${sessionId}\` when spawning a new session from this one so the child knows who started it.
 - NEVER use \`--worktree\` unless the user explicitly requests a worktree. Most tasks should use normal threads without worktrees.
 - Use \`--cwd\` to reuse an existing project subfolder or worktree directory. Use \`--worktree\` to create a new worktree.
 - The prompt passed to \`--worktree\` is the task for the new thread running inside that worktree.
@@ -545,7 +567,7 @@ Important:
 
 Use --agent to specify which agent to use for the session:
 
-kimaki send --channel ${channelId} --prompt 'Plan the refactor of the auth module' --agent plan${userArg}
+kimaki send --channel ${channelId} --prompt 'Plan the refactor of the auth module' --agent plan${parentSessionArg}${userArg}
 ${availableAgentsContext}
 
 ## running opencode commands via kimaki send
@@ -553,7 +575,7 @@ ${availableAgentsContext}
 You can trigger registered opencode commands (slash commands, skills, MCP prompts) by starting the \`--prompt\` with \`/commandname\`:
 
 kimaki send --thread <thread_id> --prompt '/review fix the auth module' --agent <current_agent>
-kimaki send --channel ${channelId} --prompt '/build-cmd update dependencies' --agent <current_agent>${userArg}
+kimaki send --channel ${channelId} --prompt '/build-cmd update dependencies' --agent <current_agent>${parentSessionArg}${userArg}
 
 The command name must match a registered opencode command. If the command is not recognized, the prompt is sent as plain text to the model. This works for both new threads (\`--channel\`) and existing threads (\`--thread\`/\`--session\`).
 
@@ -569,8 +591,8 @@ kimaki send --thread <thread_id> --prompt '/<agentname>-agent' --agent <current_
 
 Use \`--send-at\` to schedule a one-time or recurring task:
 
-kimaki send --channel ${channelId} --prompt 'Reminder: review open PRs' --send-at '2026-03-01T09:00:00Z' --agent <current_agent>${userArg}
-kimaki send --channel ${channelId} --prompt 'Run weekly test suite and summarize failures' --send-at '0 9 * * 1' --agent <current_agent>${userArg}
+kimaki send --channel ${channelId} --prompt 'Reminder: review open PRs' --send-at '2026-03-01T09:00:00Z' --agent <current_agent>${parentSessionArg}${userArg}
+kimaki send --channel ${channelId} --prompt 'Run weekly test suite and summarize failures' --send-at '0 9 * * 1' --agent <current_agent>${parentSessionArg}${userArg}
 
 ALL scheduling is in UTC. Dates must be UTC ISO format ending with \`Z\`. Cron expressions also fire in UTC (e.g. \`0 9 * * 1\` means 9:00 UTC every Monday).
 When the user specifies a time without a timezone, ask them to confirm their timezone or the UTC equivalent. Never guess the user's timezone.
@@ -579,6 +601,7 @@ When the user specifies a time without a timezone, ask them to confirm their tim
 - \`--notify-only\` to create a reminder thread without auto-starting a session
 - \`--worktree\` to create the scheduled thread as a worktree session (only if the user explicitly asks for a worktree)
 - \`--agent\` and \`--model\` to control scheduled session behavior
+- \`--parent-session\` to pass this session as parent of the scheduled child
 - \`--user\` to add a specific user to the scheduled thread
 
 \`--wait\` is incompatible with \`--send-at\` because scheduled tasks run in the future.
@@ -628,7 +651,7 @@ ONLY create worktrees when the user explicitly asks for one. Never proactively u
 When the user asks to "create a worktree" or "make a worktree", they mean you should use the kimaki CLI to create it. Do NOT use raw \`git worktree add\` commands. Instead use:
 
 \`\`\`bash
-kimaki send --channel ${channelId} --prompt 'your task description' --worktree worktree-name --agent <current_agent>${userArg}
+kimaki send --channel ${channelId} --prompt 'your task description' --worktree worktree-name --agent <current_agent>${parentSessionArg}${userArg}
 \`\`\`
 
 This creates a new Discord thread with an isolated git worktree and starts a session in it. The worktree name should be kebab-case and descriptive of the task.
@@ -644,7 +667,7 @@ Critical recursion guard:
 Use \`--cwd\` to start a session in an existing project subfolder or git worktree directory instead of the project root:
 
 \`\`\`bash
-kimaki send --channel ${channelId} --prompt 'Run restricted task X' --cwd /path/to/project/restricted-task --agent <current_agent>${userArg}
+kimaki send --channel ${channelId} --prompt 'Run restricted task X' --cwd /path/to/project/restricted-task --agent <current_agent>${parentSessionArg}${userArg}
 \`\`\`
 
 The path must be inside the project or be a git worktree of the project (validated via \`git worktree list\`). The session resolves to the correct project channel but uses that path as its working directory, so subfolder \`opencode.json\` config can apply. Passing the project root itself is allowed and behaves like the default. Use \`--worktree\` to create a new worktree, \`--cwd\` to reuse an existing directory.
@@ -658,7 +681,7 @@ This is useful for automation (cron jobs, GitHub webhooks, n8n, etc.)
 When you are approaching the **context window limit** or the user explicitly asks to **handoff to a new thread**, use the \`kimaki send\` command to start a fresh session with context:
 
 \`\`\`bash
-kimaki send --channel ${channelId} --prompt 'Continuing from previous session: <summary of current task and state>' --agent <current_agent>${userArg}
+kimaki send --channel ${channelId} --prompt 'Continuing from previous session: <summary of current task and state>' --agent <current_agent>${parentSessionArg}${userArg}
 \`\`\`
 
 The command automatically handles long prompts (over 2000 chars) by sending them as file attachments. With \`--notify-only\`, long prompts are split into multiple messages instead so the content is directly visible.

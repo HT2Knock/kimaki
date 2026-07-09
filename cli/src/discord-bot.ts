@@ -484,6 +484,9 @@ export async function startDiscordBot({
       const cliInjectedInjectionGuardPatterns = isCliInjectedPrompt
         ? promptMarker?.injectionGuardPatterns
         : undefined
+      const cliInjectedParentSessionId = isCliInjectedPrompt
+        ? promptMarker?.parentSessionId
+        : undefined
 
       // Always ignore our own messages (unless CLI-injected prompt above).
       // Without this, assigning the Kimaki role to the bot itself would loop.
@@ -829,6 +832,7 @@ export async function startDiscordBot({
           model: cliInjectedModel,
           permissions: cliInjectedPermissions,
           injectionGuardPatterns: cliInjectedInjectionGuardPatterns,
+          parentSessionId: cliInjectedParentSessionId,
           noReply: isLeadingMentionToOtherUser || undefined,
           sessionStartSource: sessionStartSource
             ? {
@@ -1367,6 +1371,7 @@ export async function startDiscordBot({
         model: marker.model,
         permissions: marker.permissions,
         injectionGuardPatterns: marker.injectionGuardPatterns,
+        parentSessionId: marker.parentSessionId,
         mode: 'opencode',
         sessionStartSource: botThreadStartSource
           ? {

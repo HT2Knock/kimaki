@@ -67,6 +67,7 @@ async function executeThreadScheduledTask({
     ...(payload.injectionGuardPatterns?.length
       ? { injectionGuardPatterns: payload.injectionGuardPatterns }
       : {}),
+    ...(payload.parentSessionId ? { parentSessionId: payload.parentSessionId } : {}),
   }
   const embed = [{ color: 0x2b2d31, footer: { text: YAML.stringify(marker) } }]
   // Newline between prefix and prompt so leading /command detection can
@@ -114,6 +115,7 @@ async function executeChannelScheduledTask({
         ...(payload.injectionGuardPatterns?.length
           ? { injectionGuardPatterns: payload.injectionGuardPatterns }
           : {}),
+        ...(payload.parentSessionId ? { parentSessionId: payload.parentSessionId } : {}),
       }
   const embeds = marker
     ? [{ color: 0x2b2d31, footer: { text: YAML.stringify(marker) } }]
