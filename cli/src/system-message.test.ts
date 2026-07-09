@@ -36,6 +36,24 @@ describe('system-message', () => {
     expect(message).toContain('--parent-session ses_child')
   })
 
+  test('omits parent session system block by default (btw/task/fork cache)', () => {
+    // /btw, task subagents, and normal sessions must not get a parent block in
+    // the system message. That block is opt-in via --parent-session only.
+    const message = getOpencodeSystemMessage({
+      sessionId: 'ses_btw_or_task',
+      channelId: 'chan_123',
+      threadId: 'thread_123',
+      guildId: 'guild_123',
+    })
+    expect(message).not.toContain('Your parent OpenCode session ID is:')
+    expect(message).not.toContain(
+      'Do NOT message the parent session unless the user explicitly asks you to.',
+    )
+    // Spawn examples still mention --parent-session for agents that start
+    // children via kimaki send; that is not the same as injecting a parent.
+    expect(message).toContain('--parent-session ses_btw_or_task')
+  })
+
   test('keeps the system prompt session-scoped', () => {
     const message = getOpencodeSystemMessage({
       sessionId: 'ses_123',

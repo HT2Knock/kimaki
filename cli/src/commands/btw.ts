@@ -97,6 +97,9 @@ export async function forkSessionToBtwThread({
     `Created btw fork session ${forkedSession.id} in thread ${thread.id} from source thread ${sourceThread.id} (session ${sessionId})`,
   )
 
+  // Parent context stays in the user prompt only. Do NOT pass parentSessionId
+  // into enqueueIncoming: that would inject a parent block into the system
+  // message and bust prompt cache shared with the parent session.
   const wrappedPrompt = [
     `The user asked a side question while you were working on another task.`,
     `This is a forked session whose ONLY goal is to answer this question.`,
