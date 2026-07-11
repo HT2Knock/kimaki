@@ -440,7 +440,7 @@ function readErrorField(error: object | null, key: string): unknown {
   return undefined
 }
 
-/** Transient network errors that may resolve on retry (DNS down, gateway unreachable). */
+/** Transient network errors that may resolve on retry (DNS down, gateway unreachable, TLS blips). */
 const TRANSIENT_ERROR_CODES = new Set([
   'ENOTFOUND',
   'ECONNREFUSED',
@@ -450,12 +450,41 @@ const TRANSIENT_ERROR_CODES = new Set([
   'EPIPE',
   'EHOSTUNREACH',
   'ENETUNREACH',
+  // TLS/cert errors can be transient (intermediate CA blip, MITM proxy, cert rotation).
+  // Without these, Discord login failure exits EXIT_NO_RESTART and the bin wrapper
+  // never restarts — the bot dies permanently on "unable to verify the first certificate".
+  'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
+  'UNABLE_TO_GET_ISSUER_CERT',
+  'UNABLE_TO_GET_ISSUER_CERT_LOCALLY',
+  'UNABLE_TO_DECODE_ISSUER_PUBLIC_KEY',
+  'CERT_SIGNATURE_FAILURE',
+  'CERT_NOT_YET_VALID',
+  'CERT_HAS_EXPIRED',
+  'CRL_HAS_EXPIRED',
+  'DEPTH_ZERO_SELF_SIGNED_CERT',
+  'SELF_SIGNED_CERT_IN_CHAIN',
+  'ERR_TLS_CERT_ALTNAME_INVALID',
 ])
+
+const TRANSIENT_ERROR_MESSAGE_PATTERNS = [
+  /unable to verify the first certificate/i,
+  /certificate has expired/i,
+  /self[- ]signed certificate/i,
+  /unable to get local issuer certificate/i,
+]
 
 export function isTransientNetworkError(error: unknown): boolean {
   if (!(error instanceof Error)) return false
   const code = (error as NodeJS.ErrnoException).code
   if (code && TRANSIENT_ERROR_CODES.has(code)) return true
+  // Fallback when code is stripped by wrappers (discord.js sometimes rethrows by message only).
+  if (
+    TRANSIENT_ERROR_MESSAGE_PATTERNS.some((pattern) =>
+      pattern.test(error.message),
+    )
+  ) {
+    return true
+  }
   // discord.js wraps errors in cause chains
   if (error.cause instanceof Error) return isTransientNetworkError(error.cause)
   return false
