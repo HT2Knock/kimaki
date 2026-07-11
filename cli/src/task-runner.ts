@@ -6,6 +6,7 @@ import YAML from 'yaml'
 import {
   claimScheduledTaskRunning,
   getDuePlannedScheduledTasks,
+  getScheduledTask,
   markScheduledTaskCronRescheduled,
   markScheduledTaskCronRetry,
   markScheduledTaskFailed,
@@ -292,20 +293,25 @@ async function finalizeFailedTask({
   })
 }
 
+export type ProcessDueTaskResult =
+  | { kind: 'skipped' }
+  | { kind: 'success' }
+  | { kind: 'failed'; error: Error }
+
 async function processDueTask({
   rest,
   task,
 }: {
   rest: REST
   task: ScheduledTask
-}): Promise<void> {
+}): Promise<ProcessDueTaskResult> {
   const startedAt = new Date()
   const claimed = await claimScheduledTaskRunning({
     taskId: task.id,
     startedAt,
   })
   if (!claimed) {
-    return
+    return { kind: 'skipped' }
   }
 
   const executeResult = await executeScheduledTask({ rest, task })
@@ -320,10 +326,33 @@ async function processDueTask({
       failedAt: finishedAt,
       error: executeResult,
     })
-    return
+    return { kind: 'failed', error: executeResult }
   }
 
   await finalizeSuccessfulTask({ task, completedAt: finishedAt })
+  return { kind: 'success' }
+}
+
+// Same claim → execute → finalize path as the poller. Used by /tasks Run now.
+export async function runScheduledTaskNow({
+  token,
+  taskId,
+}: {
+  token: string
+  taskId: number
+}): Promise<ProcessDueTaskResult | Error> {
+  const task = await getScheduledTask(taskId)
+  if (!task) {
+    return new Error(`Task #${taskId} not found`)
+  }
+  if (task.status !== 'planned') {
+    return new Error(
+      `Task #${taskId} is ${task.status}; only planned tasks can be run now`,
+    )
+  }
+
+  const rest = createDiscordRest(token)
+  return processDueTask({ rest, task })
 }
 
 async function runTaskRunnerTick({
