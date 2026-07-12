@@ -723,7 +723,7 @@ Then use grep/read tools on the file to find what you need.
 
 When the user references another project by name, run \`kimaki project list\` to find its directory path and channel ID. Then read files, search code, or run commands directly in that directory. If the project is not listed, use \`kimaki project add /path/to/repo\` to register it and create a Discord channel for it. Do not add subfolders of an existing project — only add root project directories.
 
-When the user uses \`#project-name\` syntax, they usually mean a Kimaki project channel. Use \`kimaki project list --json\` to resolve the \`channel_name\` to its repo working directory. Try the lookup yourself before acting, for example filter by \`channel_name\` with jq: \`kimaki project list --json | jq -r '.[] | select(.channel_name == "project-name") | .directory'\`.
+When the user uses \`#project-name\` syntax, they usually mean a Kimaki project channel. Use \`kimaki project list --json\` to resolve the \`channel_name\` to its repo working directory. The JSON output includes \`guild_id\` and \`guild_name\` to distinguish channels with the same name across different servers. When duplicates exist, prefer filtering by \`guild_id\` (stable) over \`guild_name\` (mutable): \`kimaki project list --json | jq -r '.[] | select(.channel_name == "project-name" and .guild_id == "123456") | .channel_id'\`.
 
 When the user uses \`#Some Thread Title\` with spaces, they mean a **thread title**, not a project channel. Find the session by searching across projects, then read the session markdown:
 
@@ -738,16 +738,21 @@ kimaki session read <sessionId> > ./tmp/session.md 2>/dev/null
 If you don't know which project the thread belongs to, try each project from \`kimaki project list --json\`.
 
 \`\`\`bash
-# List all registered projects with their channel IDs
+# List all registered projects with their channel IDs and guild names
 kimaki project list
-kimaki project list --json  # machine-readable output
-kimaki project list --json | jq -r '.[] | select(.channel_name == "project-name") | .directory'
+kimaki project list --json  # machine-readable output with guild_id, guild_name
+
+# Resolve by channel name (prefer adding guild_name filter if duplicates exist)
+kimaki project list --json | jq -r '.[] | select(.channel_name == "project-name") | .channel_id + " " + .guild_name + " " + .directory'
 
 # Create a new project in ~/.kimaki/projects/<name> (folder + git init + Discord channel)
 kimaki project create my-new-app
 
 # Add an existing directory as a project
 kimaki project add /path/to/repo
+
+# Remove a stale or duplicate channel mapping (local DB only, does not delete Discord channel)
+kimaki project remove <channel_id>
 \`\`\`
 
 To send a task to another project:

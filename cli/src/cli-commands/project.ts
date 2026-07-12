@@ -178,20 +178,23 @@ cli
       process.exit(0)
     }
 
-    // Fetch Discord channel names via REST API
+    // Fetch Discord channel names and guild IDs via REST API
     const botRow = await getBotTokenWithMode()
     const rest = botRow ? createDiscordRest(botRow.token) : null
 
     const enriched = await Promise.all(
       channels.map(async (ch) => {
         let channelName = ''
+        let guildId = ''
         let deleted = false
         if (rest) {
           try {
             const data = (await rest.get(Routes.channel(ch.channel_id))) as {
               name?: string
+              guild_id?: string
             }
             channelName = data.name || ''
+            guildId = data.guild_id || ''
           } catch (error) {
             // Only mark as deleted for Unknown Channel (10003) or 404,
             // not transient errors like rate limits or 5xx
@@ -201,15 +204,54 @@ cli
             deleted = isUnknownChannel
           }
         }
-        return { ...ch, channelName, deleted }
+        return { ...ch, channelName, guildId, deleted }
       }),
     )
 
+    // Fetch guild names for unique guild IDs (deduplicated to save API calls)
+    const guildNameMap = new Map<string, string>()
+    if (rest) {
+      const uniqueGuildIds = [...new Set(enriched.map((ch) => ch.guildId).filter(Boolean))]
+      await Promise.all(
+        uniqueGuildIds.map(async (guildId) => {
+          try {
+            const data = (await rest.get(Routes.guild(guildId))) as { name?: string }
+            guildNameMap.set(guildId, data.name || '')
+          } catch (error) {
+            cliLogger.debug(
+              `Failed to fetch guild ${guildId}:`,
+              error instanceof Error ? error.stack : String(error),
+            )
+          }
+        }),
+      )
+    }
+
+    // Build final enriched entries with guild names resolved
+    const enrichedWithGuild = enriched.map((ch) => ({
+      ...ch,
+      guildName: ch.guildId ? (guildNameMap.get(ch.guildId) || '') : '',
+    }))
+
+    // Warn on stderr if the same directory appears in multiple channels (multi-guild duplicates)
+    const directoryCounts = new Map<string, number>()
+    for (const ch of enrichedWithGuild) {
+      if (!ch.deleted) {
+        directoryCounts.set(ch.directory, (directoryCounts.get(ch.directory) || 0) + 1)
+      }
+    }
+    for (const [dir, count] of directoryCounts) {
+      if (count > 1) {
+        cliLogger.warn(
+          `Directory "${dir}" is registered in ${count} channels. Use channel_id to disambiguate.`,
+        )
+      }
+    }
+
     // Prune stale entries if requested
+    let finalEntries = enrichedWithGuild
     if (options.prune) {
-      const stale = enriched.filter((ch) => {
-        return ch.deleted
-      })
+      const stale = finalEntries.filter((ch) => ch.deleted)
       if (stale.length === 0) {
         cliLogger.log('No stale channels to prune')
       } else {
@@ -219,22 +261,19 @@ cli
         }
         cliLogger.log(`Pruned ${stale.length} stale channel(s)`)
       }
-      // Re-filter to only show live entries after pruning
-      const live = enriched.filter((ch) => {
-        return !ch.deleted
-      })
-      if (live.length === 0) {
+      finalEntries = finalEntries.filter((ch) => !ch.deleted)
+      if (finalEntries.length === 0) {
         cliLogger.log('No projects registered')
         process.exit(0)
       }
-      enriched.length = 0
-      enriched.push(...live)
     }
 
     if (options.json) {
-      const output = enriched.map((ch) => ({
+      const output = finalEntries.map((ch) => ({
         channel_id: ch.channel_id,
         channel_name: ch.channelName,
+        guild_id: ch.guildId,
+        guild_name: ch.guildName,
         directory: ch.directory,
         folder_name: path.basename(ch.directory),
         deleted: ch.deleted,
@@ -243,16 +282,51 @@ cli
       process.exit(0)
     }
 
-    for (const ch of enriched) {
+    for (const ch of finalEntries) {
       const folderName = path.basename(ch.directory)
       const deletedTag = ch.deleted ? ' (deleted from Discord)' : ''
       const channelLabel = ch.channelName ? `#${ch.channelName}` : ch.channel_id
-      console.log(`\n${channelLabel}${deletedTag}`)
+      const guildLabel = ch.guildName || ch.guildId || ''
+      const guildSuffix = guildLabel ? ` (${guildLabel})` : ''
+      console.log(`\n${channelLabel}${guildSuffix}${deletedTag}`)
       console.log(`   Folder: ${folderName}`)
       console.log(`   Directory: ${ch.directory}`)
       console.log(`   Channel ID: ${ch.channel_id}`)
+      if (ch.guildId) {
+        console.log(`   Guild ID: ${ch.guildId}`)
+      }
     }
 
+    process.exit(0)
+  })
+
+cli
+  .command(
+    'project remove <channelId>',
+    'Remove a project channel mapping from the local database (does not delete the Discord channel)',
+  )
+  .action(async (channelId: string) => {
+    await initDatabase()
+
+    const db = await getDb()
+    const row = await db.query.channel_directories.findFirst({
+      where: { channel_id: channelId },
+    })
+
+    if (!row) {
+      cliLogger.error(`No channel mapping found for channel ID: ${channelId}`)
+      process.exit(EXIT_NO_RESTART)
+    }
+
+    const removed = await deleteChannelDirectoryById(channelId)
+    if (!removed) {
+      cliLogger.error(`Channel mapping disappeared before it could be removed: ${channelId}`)
+      process.exit(EXIT_NO_RESTART)
+    }
+    cliLogger.log(`Removed channel mapping:`)
+    cliLogger.log(`  Channel ID: ${channelId}`)
+    cliLogger.log(`  Directory: ${row.directory}`)
+    cliLogger.log(`  Type: ${row.channel_type}`)
     process.exit(0)
   })
 
