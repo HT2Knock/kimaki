@@ -57,6 +57,7 @@ import { discordApiUrl, getDiscordRestApiUrl, getGatewayProxyRestBaseUrl, getInt
 import crypto from 'node:crypto'
 import path from 'node:path'
 import fs from 'node:fs'
+import os from 'node:os'
 import { spawn } from 'node:child_process'
 import { createLogger, LogPrefix } from './logger.js'
 import { notifyError } from './sentry.js'
@@ -264,11 +265,8 @@ export async function sendDiscordMessageWithOptionalAttachment({
   const preview = prompt.slice(0, 100).replace(/\n/g, ' ')
   const summaryContent = `Prompt attached as file (${prompt.length} chars)\n\n> ${preview}...`
 
-  const tmpDir = path.join(process.cwd(), 'tmp')
-  if (!fs.existsSync(tmpDir)) {
-    fs.mkdirSync(tmpDir, { recursive: true })
-  }
-  const tmpFile = path.join(tmpDir, `prompt-${Date.now()}.md`)
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kimaki-prompt-'))
+  const tmpFile = path.join(tmpDir, 'prompt.md')
   // Wrap long lines so the file is readable in Discord's preview
   // (Discord doesn't wrap text in file attachments)
   const wrappedPrompt = prompt
@@ -340,6 +338,7 @@ export async function sendDiscordMessageWithOptionalAttachment({
     return (await starterMessageResponse.json()) as { id: string }
   } finally {
     fs.unlinkSync(tmpFile)
+    fs.rmdirSync(tmpDir)
   }
 }
 
