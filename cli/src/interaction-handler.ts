@@ -195,26 +195,14 @@ export function registerInteractionHandler({
         // Multi-machine routing: only handle interactions for channels owned
         // by this machine (have a project directory configured in local db).
         // If not owned, silently return so the other machine handles it.
+        // Setup commands (create-new-project, add-project) bypass this check
+        // because they are designed to run from any channel — they create new
+        // project channels rather than requiring one to already exist.
+        const isSetupCommand =
+          interaction.isChatInputCommand() &&
+          SETUP_COMMANDS.has(interaction.commandName)
         const owned = await isInteractionOwnedByThisMachine(interaction)
-        if (!owned) {
-          // Setup commands get a helpful reply instead of silent ignore.
-          // Both machines may race to reply; one wins, the other silently
-          // fails (interaction tokens are single-use). The message is the
-          // same from either machine so the race is harmless.
-          if (
-            interaction.isChatInputCommand() &&
-            SETUP_COMMANDS.has(interaction.commandName)
-          ) {
-            await interaction.reply({
-              content:
-                'Run this command in an existing Kimaki project channel.\nTo add a new project channel from the terminal, run:\n```\nkimaki project add /path/to/folder\n```',
-              flags: MessageFlags.Ephemeral,
-            }).catch(() => {
-              // Another machine already responded, safe to ignore
-            })
-            return
-          }
-
+        if (!owned && !isSetupCommand) {
           interactionLogger.log(
             `[IGNORED] Channel ${interaction.channelId} has no project directory configured, skipping interaction`,
           )
