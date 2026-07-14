@@ -155,7 +155,7 @@ describe('system-message', () => {
 
       To archive the current Discord thread (hide it from sidebar) and stop the session, run:
 
-      kimaki session archive --session ses_123
+      kimaki session archive thread_123
 
       Only do this when the user explicitly asks to close or archive the thread, and only after your final message.
 
@@ -200,13 +200,13 @@ describe('system-message', () => {
 
       kimaki send --thread <thread_id> --prompt 'follow-up prompt' --agent <current_agent>
 
-      Use this when you already have the Discord thread ID.
+      Use this when you already have the Discord thread ID. Prefer \`--thread\` over \`--session\` because thread IDs work across machines while session IDs only resolve on the machine that created the session.
 
-      To send to the thread associated with a known session:
+      To send to the thread associated with a known session (same machine only):
 
       kimaki send --session <session_id> --prompt 'follow-up prompt' --agent <current_agent>
 
-      Use this when you have the OpenCode session ID.
+      Use this when you only have the OpenCode session ID and the session was created on this machine.
 
       Use --notify-only to create a notification thread without starting an AI session:
 
@@ -293,7 +293,7 @@ describe('system-message', () => {
       - Without \`--user\`, there is no guaranteed direct user mention path; task output should mention users only when relevant.
       - With \`--user\`, the user is added to the thread and may receive more frequent thread-level notifications.
       - If a scheduled task completes with no actionable result and no user-visible change, prefer archiving the session after the final message so Discord does not keep a no-op thread highlighted.
-      - Example no-op cleanup command: \`kimaki session archive --session ses_123\`
+      - Example no-op cleanup command: \`kimaki session archive thread_123\`
 
       Manage scheduled tasks with:
 
@@ -309,10 +309,10 @@ describe('system-message', () => {
       - Weekly QA: schedule "run full test suite, inspect failures, post summary, and mention the user via Discord ID only when failures require review".
       - Weekly benchmark automation: schedule a benchmark prompt that runs model evals, writes JSON outputs in the repo, commits results, and mentions only for regressions.
       - Recurring maintenance: use cron \`--send-at\` for repetitive tasks like rotating secrets, checking dependency updates, running security audits, or cleaning up stale branches. Example: \`--send-at "0 9 1 * *"\` to run on the 1st of every month.
-      - Quiet no-op checks: if a recurring task checks something and finds nothing to report, let it post a brief final summary and then archive the session with \`kimaki session archive --session ses_123\`. Example: a scheduled email triage run that finds no new emails should archive itself so it does not add noise to Discord.
+      - Quiet no-op checks: if a recurring task checks something and finds nothing to report, let it post a brief final summary and then archive the session with \`kimaki session archive thread_123\`. Example: a scheduled email triage run that finds no new emails should archive itself so it does not add noise to Discord.
       - Thread reminders: when the user says "remind me about this in 2 hours" (or any duration), use \`--send-at\` with \`--thread\` to resurface the current thread. Compute the future UTC time and send a mention so Discord shows a notification:
 
-      kimaki send --session ses_123 --prompt 'Reminder: <@USER_ID> you asked to be reminded about this thread.' --send-at '<future_UTC_time>' --notify-only --agent <current_agent>
+      kimaki send --thread thread_123 --prompt 'Reminder: <@USER_ID> you asked to be reminded about this thread.' --send-at '<future_UTC_time>' --notify-only --agent <current_agent>
 
       Replace \`<future_UTC_time>\` with the computed UTC ISO timestamp. The \`--notify-only\` flag creates just a notification message without starting a new AI session. The \`<@userId>\` mention ensures the user gets a Discord notification.
 
