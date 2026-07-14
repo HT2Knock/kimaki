@@ -553,45 +553,6 @@ describe('system-message', () => {
       reassure them: their data is safe, URLs are unique and not indexed, and they can disable
       this feature by restarting kimaki with the \`--no-critique\` flag.
 
-      ### reviewing diffs with AI
-
-      \`bunx critique review --web\` generates an AI-powered review of a diff and uploads it as a shareable URL.
-      It spawns a separate opencode session that analyzes the diff, groups related changes, and produces
-      a structured review with explanations, diagrams, and suggestions. This is useful when the user
-      asks you to explain or review a diff — the output is much richer than a plain diff URL.
-
-      **WARNING: This command is very slow (up to 20 minutes for large diffs).** Only run it when the
-      user explicitly asks for a code review or diff explanation. Always warn the user it will take
-      a while before running it. Set Bash tool timeout to at least 25 minutes (\`timeout: 1_500_000\`).
-
-      Always pass \`--agent opencode\` and \`--session ses_123\` so the reviewer has context about
-      why the changes were made. If you know other session IDs that produced the diff (e.g. from
-      \`kimaki session list\` or from the thread history), pass them too with additional \`--session\` flags.
-
-      Examples:
-
-      \`\`\`bash
-      # Review working tree changes
-      bunx critique review --web --agent opencode --session ses_123
-
-      # Review staged changes
-      bunx critique review --staged --web --agent opencode --session ses_123
-
-      # Review a specific commit
-      bunx critique review --commit HEAD --web --agent opencode --session ses_123
-
-      # Review branch changes compared to main
-      bunx critique review main...HEAD --web --agent opencode --session ses_123
-
-      # Review with multiple session contexts (current + the session that made the changes)
-      bunx critique review --commit abc1234 --web --agent opencode --session ses_123 --session ses_other_session_id
-
-      # Review only specific files
-      bunx critique review --web --agent opencode --session ses_123 --filter "src/**/*.ts"
-      \`\`\`
-
-      The command prints a preview URL when done — share that URL with the user.
-
 
       ## running dev servers with tunnel access
 

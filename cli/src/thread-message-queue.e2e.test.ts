@@ -1378,8 +1378,8 @@ e2eTest('thread message queue ordering', () => {
 
       const th = discord.thread(thread.id)
 
-      // 2. While session is busy (race-final has 500ms delay), queue a message
-      // with queue suffix. The queue suffix forces local-queue mode.
+      // 2. Wait until the bot has replied, then queue while the slow stream is busy.
+      await th.waitForBotReply({ timeout: 4_000 })
       const queuedMsg = await th.user(TEST_USER_ID).sendMessage({
         content: 'Reply with exactly: original-queued. queue',
       })
