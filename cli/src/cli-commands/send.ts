@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url'
 import { spawn, execSync } from 'node:child_process'
 import { createLogger, LogPrefix, initLogFile } from '../logger.js'
 import { createDiscordClient, initDatabase, getChannelDirectory, initializeOpencodeForDirectory, createProjectChannels } from '../discord-bot.js'
-import { getBotTokenWithMode, getThreadSession, getThreadIdBySessionId, getSessionEventSnapshot, getDb, createScheduledTask, listScheduledTasks, cancelScheduledTask, getScheduledTask, updateScheduledTask, getSessionStartSourcesBySessionIds, deleteChannelDirectoryById, findChannelsByDirectory } from '../database.js'
+import { getBotTokenWithMode, getThreadSession, getThreadIdBySessionId, getSessionEventSnapshot, getDb, createScheduledTask, listScheduledTasks, cancelScheduledTask, getScheduledTask, updateScheduledTask, getSessionStartSourcesBySessionIds, deleteChannelDirectoryById, findChannelsByDirectory, getChannelWorktreesEnabled } from '../database.js'
 import { ShareMarkdown } from '../markdown.js'
 import { parseSessionSearchPattern, findFirstSessionSearchHit, buildSessionSearchSnippet, getPartSearchTexts } from '../session-search.js'
 import { formatWorktreeName, formatAutoWorktreeName } from '../commands/new-worktree.js'
@@ -578,14 +578,22 @@ cli
             : cleanPrompt)
         // Explicit string => use as-is via formatWorktreeName (no vowel strip).
         // Boolean true => derived from thread/prompt, compress via formatAutoWorktreeName.
+        // When no --worktree flag but channel has worktrees enabled via toggle,
+        // the bot-side ThreadCreate handler auto-creates the worktree. We add
+        // the prefix here for cosmetic consistency (thread name shows 🌳).
+        const channelWorktreesEnabled =
+          !options.worktree && !options.cwd && !notifyOnly
+            ? await getChannelWorktreesEnabled(channelId)
+            : false
         const worktreeName = options.worktree
           ? typeof options.worktree === 'string'
             ? formatWorktreeName(options.worktree)
             : formatAutoWorktreeName(baseThreadName)
           : undefined
-        const threadName = worktreeName
-          ? `${WORKTREE_PREFIX}${baseThreadName}`
-          : baseThreadName
+        const threadName =
+          worktreeName || channelWorktreesEnabled
+            ? `${WORKTREE_PREFIX}${baseThreadName}`
+            : baseThreadName
 
         if (parsedSchedule) {
           const payload: ScheduledTaskPayload = {

@@ -1257,16 +1257,28 @@ export async function startDiscordBot({
         return
       }
 
-      // Start worktree creation concurrently if requested.
+      // Start worktree creation concurrently if requested via marker OR
+      // if the channel/global toggle enables auto-worktrees.
       // The runtime is created immediately so follow-up messages queue
       // naturally; the worktree promise is awaited inside enqueueIncoming.
+      const autoWorktreeEnabled =
+        !marker.worktree &&
+        !marker.cwd &&
+        (store.getState().useWorktrees ||
+          (await getChannelWorktreesEnabled(parent.id)))
+      const effectiveWorktreeName =
+        marker.worktree ||
+        (autoWorktreeEnabled
+          ? formatAutoWorktreeName(thread.name.slice(0, 50))
+          : undefined)
+
       let worktreePromise: Promise<string | Error> | undefined
-      if (marker.worktree && (await isGitRepositoryRoot(projectDirectory))) {
-        discordLogger.log(`[BOT_SESSION] Creating worktree: ${marker.worktree}`)
+      if (effectiveWorktreeName && (await isGitRepositoryRoot(projectDirectory))) {
+        discordLogger.log(`[BOT_SESSION] Creating worktree: ${effectiveWorktreeName}`)
 
         const worktreeStatusMessage = await thread
           .send({
-            content: worktreeCreatingMessage(marker.worktree),
+            content: worktreeCreatingMessage(effectiveWorktreeName),
             flags: SILENT_MESSAGE_FLAGS,
           })
           .catch(() => undefined)
@@ -1274,13 +1286,17 @@ export async function startDiscordBot({
         worktreePromise = createWorktreeInBackground({
           thread,
           starterMessage: worktreeStatusMessage,
-          worktreeName: marker.worktree,
+          worktreeName: effectiveWorktreeName,
           projectDirectory,
           rest: discordClient.rest,
         })
       } else if (marker.worktree) {
         discordLogger.warn(
           `[BOT_SESSION] Skipping requested worktree for non-git project directory: ${projectDirectory}`,
+        )
+      } else if (autoWorktreeEnabled) {
+        discordLogger.warn(
+          `[BOT_SESSION] Skipping auto-worktree for non-git project directory: ${projectDirectory}`,
         )
       }
 
