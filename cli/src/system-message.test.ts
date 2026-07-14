@@ -416,7 +416,11 @@ describe('system-message', () => {
       \`\`\`bash
       # List all registered projects with their channel IDs and guild names
       kimaki project list
-      kimaki project list --json  # machine-readable output with guild_id, guild_name
+      kimaki project list --json  # machine-readable output with guild_id, guild_name, is_local
+
+      # Include projects from other machines (scans Kimaki category in Discord)
+      kimaki project list --all
+      kimaki project list --all --json  # remote projects have is_local: false and directory: null
 
       # Resolve by channel name (prefer adding guild_name filter if duplicates exist)
       kimaki project list --json | jq -r '.[] | select(.channel_name == "project-name") | .channel_id + " " + .guild_name + " " + .directory'
