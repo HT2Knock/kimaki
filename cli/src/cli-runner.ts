@@ -236,9 +236,6 @@ export async function sendDiscordMessageWithOptionalAttachment({
     const { default: mime } = await import('mime')
 
     for (const file of files) {
-      if (!fs.existsSync(file)) {
-        throw new Error(`File not found: ${file}`)
-      }
       const stat = fs.statSync(file)
       if (stat.size > DISCORD_DEFAULT_MAX_FILE_SIZE) {
         const fileMB = (stat.size / 1024 / 1024).toFixed(1)
@@ -249,16 +246,30 @@ export async function sendDiscordMessageWithOptionalAttachment({
       }
     }
 
-    // If prompt is too long, truncate it for the message content since the
-    // user can still see the full prompt via thread context
-    const content =
-      prompt.length <= discordMaxLength
-        ? prompt
-        : prompt.slice(0, discordMaxLength - 4) + '...'
+    // When prompt exceeds Discord's limit, attach it as prompt.md alongside
+    // user files so nothing is silently lost.
+    const isLongPrompt = prompt.length > discordMaxLength
+    const content = isLongPrompt
+      ? `Prompt attached as file (${prompt.length} chars)\n\n> ${prompt.slice(0, 100).replace(/\n/g, ' ')}...`
+      : prompt
 
-    const attachments = files.map((file, index) => ({
-      id: index,
+    // Build attachment metadata: user files + optional prompt.md
+    const allFiles: Array<{ filePath: string; filename: string; mimeType: string }> = files.map((file) => ({
+      filePath: file,
       filename: path.basename(file),
+      mimeType: mime.getType(file) || 'application/octet-stream',
+    }))
+
+    if (isLongPrompt) {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kimaki-prompt-'))
+      const tmpFile = path.join(tmpDir, 'prompt.md')
+      fs.writeFileSync(tmpFile, prompt)
+      allFiles.push({ filePath: tmpFile, filename: 'prompt.md', mimeType: 'text/markdown' })
+    }
+
+    const attachments = allFiles.map((f, index) => ({
+      id: index,
+      filename: f.filename,
     }))
 
     const formData = new FormData()
@@ -272,13 +283,12 @@ export async function sendDiscordMessageWithOptionalAttachment({
       }),
     )
 
-    for (const [index, file] of files.entries()) {
-      const buffer = fs.readFileSync(file)
-      const mimeType = mime.getType(file) || 'application/octet-stream'
+    for (const [index, f] of allFiles.entries()) {
+      const buffer = fs.readFileSync(f.filePath)
       formData.append(
         `files[${index}]`,
-        new Blob([buffer], { type: mimeType }),
-        path.basename(file),
+        new Blob([buffer], { type: f.mimeType }),
+        f.filename,
       )
     }
 

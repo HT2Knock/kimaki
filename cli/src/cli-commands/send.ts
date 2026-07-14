@@ -181,11 +181,26 @@ cli
           }
         }
 
-        // Validate all --file paths exist before doing anything else
+        // Validate all --file paths exist and are regular files
         if (filePaths?.length) {
+          // Discord allows max 10 attachments per message. Long prompts also
+          // consume one slot (prompt.md), so reserve space for that.
+          const maxUserFiles = prompt.length > 2000 ? 9 : 10
+          if (filePaths.length > maxUserFiles) {
+            cliLogger.error(
+              `Too many files: ${filePaths.length} provided, Discord allows at most ${maxUserFiles} attachments per message` +
+              (maxUserFiles === 9 ? ' (1 slot reserved for long prompt)' : ''),
+            )
+            process.exit(EXIT_NO_RESTART)
+          }
           for (const file of filePaths) {
             if (!fs.existsSync(file)) {
               cliLogger.error(`File not found: ${file}`)
+              process.exit(EXIT_NO_RESTART)
+            }
+            const stat = fs.statSync(file)
+            if (!stat.isFile()) {
+              cliLogger.error(`Not a regular file: ${file}`)
               process.exit(EXIT_NO_RESTART)
             }
           }
