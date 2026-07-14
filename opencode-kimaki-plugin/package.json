@@ -1,6 +1,6 @@
 {
   "name": "@kimaki/opencode-plugin",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "type": "module",
   "description": "OpenCode plugin for Claude Pro/Max subscription support via Anthropic OAuth",
   "main": "./dist/index.js",
