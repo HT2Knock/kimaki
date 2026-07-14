@@ -26,7 +26,7 @@ import { buildOpencodeEventLogLine } from '../session-handler/opencode-session-e
 import { createDiscordRest } from '../discord-urls.js'
 import { archiveThread, uploadFilesToDiscord, stripMentions } from '../discord-utils.js'
 import { setDataDir, setProjectsDir, getDataDir, getProjectsDir } from '../config.js'
-import { execAsync, resolveSessionWorkingDirectory } from '../worktrees.js'
+import { execAsync, resolveSessionWorkingDirectory, isGitRepositoryRoot } from '../worktrees.js'
 import { upgrade, getCurrentVersion } from '../upgrade.js'
 import { getPromptPreview, parseSendAtValue, parseScheduledTaskPayload, serializeScheduledTaskPayload, type ScheduledTaskPayload } from '../task-schedule.js'
 import {
@@ -96,6 +96,13 @@ cli
     ),
   )
   .option(
+    '-f, --file <path>',
+    z.array(z.string()).describe(
+      'Local file to attach (repeatable). Images, text files, PDFs, etc. ' +
+      'Examples: --file screenshot.png --file report.pdf',
+    ),
+  )
+  .option(
     '--send-at <schedule>',
     'Schedule send for future (UTC ISO date/time ending in Z, or cron expression)',
   )
@@ -153,9 +160,17 @@ cli
           process.exit(EXIT_NO_RESTART)
         }
 
+        const filePaths = options.file?.length
+          ? options.file.map((f: string) => path.resolve(f))
+          : undefined
+
         if (sendAt) {
           if (options.wait) {
             cliLogger.error('Cannot use --wait with --send-at')
+            process.exit(EXIT_NO_RESTART)
+          }
+          if (filePaths?.length) {
+            cliLogger.error('Cannot use --file with --send-at')
             process.exit(EXIT_NO_RESTART)
           }
           if (prompt.length > 1900) {
@@ -163,6 +178,16 @@ cli
               '--send-at currently supports prompts up to 1900 characters',
             )
             process.exit(EXIT_NO_RESTART)
+          }
+        }
+
+        // Validate all --file paths exist before doing anything else
+        if (filePaths?.length) {
+          for (const file of filePaths) {
+            if (!fs.existsSync(file)) {
+              cliLogger.error(`File not found: ${file}`)
+              process.exit(EXIT_NO_RESTART)
+            }
           }
         }
 
@@ -483,6 +508,7 @@ cli
             botToken,
             embeds: promptEmbed,
             rest,
+            files: filePaths,
           })
 
           const threadUrl = `https://discord.com/channels/${threadData.guild_id}/${threadData.id}`
@@ -582,8 +608,9 @@ cli
         // the bot-side ThreadCreate handler auto-creates the worktree. We add
         // the prefix here for cosmetic consistency (thread name shows 🌳).
         const channelWorktreesEnabled =
-          !options.worktree && !options.cwd && !notifyOnly
-            ? await getChannelWorktreesEnabled(channelId)
+          !options.worktree && !options.cwd && !notifyOnly && projectDirectory
+            ? (await getChannelWorktreesEnabled(channelId)) &&
+              (await isGitRepositoryRoot(projectDirectory))
             : false
         const worktreeName = options.worktree
           ? typeof options.worktree === 'string'
@@ -662,6 +689,7 @@ cli
           embeds: autoStartEmbed,
           rest,
           splitInsteadOfAttach: notifyOnly,
+          files: filePaths,
         })
 
         // For notify-only on non-project channels, just post the message without

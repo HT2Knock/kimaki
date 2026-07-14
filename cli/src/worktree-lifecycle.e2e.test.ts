@@ -61,6 +61,7 @@ function normalizeWorktreeLifecycleText(text: string): string {
     .replaceAll(CHANNEL_WORKTREE_NAME, 'CHANNEL_WORKTREE_NAME')
     .replaceAll(AUTO_WORKTREE_SUFFIX, 'AUTO_WORKTREE_NAME')
     .replaceAll(WORKTREE_NAME, 'WORKTREE_NAME')
+    .replaceAll(WORKTREE_SUFFIX, 'SUFFIX')
     .replace(/ses_[a-zA-Z0-9]+/g, 'ses_TEST')
     .replace(/<#\d+>/g, '<#THREAD_ID>')
     .replace(/`[^`\n]*\/worktrees\/[^`\n]*`/g, '`/tmp/worktrees/WORKTREE_NAME`')
@@ -830,6 +831,22 @@ describe('worktree lifecycle', () => {
         text: '⬥ ok',
         timeout: 10_000,
       })
+
+      // Snapshot the thread content
+      const th = discord.thread(threadData.id)
+      expect(
+        normalizeWorktreeLifecycleText(await th.text()),
+      ).toMatchInlineSnapshot(`
+        "--- from: assistant (TestBot)
+        » **kimaki-cli:**
+        Reply with exactly: send-auto-wt-SUFFIX
+        [embed]
+        🌳 **Worktree: opencode/kimaki-rply-wth-exctly-snd-at-wt-SUFFIX**
+        📁 \`/tmp/worktrees/WORKTREE_NAME\`
+        🌿 Branch: \`opencode/kimaki-rply-wth-exctly-snd-at-wt-SUFFIX\`
+        *using deterministic-provider/deterministic-v2*
+        ⬥ ok"
+      `)
 
       // Verify DB has worktree info
       const worktreeInfo = await getThreadWorktreeOrWorkspace(threadData.id)
