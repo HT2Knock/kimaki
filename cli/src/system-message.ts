@@ -353,8 +353,8 @@ export function getOpencodeSystemMessage({
   const userArg = ` --user '${userId || '<discord-user-id>'}'`
   const parentSessionArg = ` --parent-session ${sessionId}`
   // Prefer thread ID for cross-machine compatibility; fall back to session ID.
-  const archiveTarget = threadId ? threadId : `--session ${sessionId}`
-  const sendToSelfTarget = threadId ? `--thread ${threadId}` : `--session ${sessionId}`
+  const archiveTarget = threadId ? `${threadId} (or --session ${sessionId})` : `--session ${sessionId}`
+  const sendToSelfTarget = threadId ? `--thread ${threadId} (or --session ${sessionId})` : `--session ${sessionId}`
   const topicContext = channelTopic?.trim()
     ? `\n\n<channel-topic>\n${channelTopic.trim()}\n</channel-topic>`
     : ''
