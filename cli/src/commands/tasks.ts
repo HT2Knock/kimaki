@@ -89,16 +89,24 @@ function buildCancelCell(task: ScheduledTask): string {
 // so 7 rows stays under the budget with separators.
 const MAX_TASK_ROWS = 7
 
+function formatChannelCell(task: ScheduledTask): string {
+  if (!task.channel_id) {
+    return '-'
+  }
+  return `<#${task.channel_id}>`
+}
+
 function buildTaskTable({
   tasks,
 }: {
   tasks: ScheduledTask[]
 }): string {
-  const header = '| ID | Status | Prompt | Schedule | Next Run | Run | Delete |'
-  const separator = '|---|---|---|---|---|---|---|'
+  const header = '| ID | Status | Channel | Prompt | Schedule | Next Run | Run | Delete |'
+  const separator = '|---|---|---|---|---|---|---|---|'
   const rows = tasks.map((task) => {
     const id = String(task.id)
     const status = task.status
+    const channel = formatChannelCell(task)
     const prompt = sanitizeTableCell(
       task.prompt_preview.length > 240
         ? task.prompt_preview.slice(0, 237) + '...'
@@ -117,7 +125,7 @@ function buildTaskTable({
     })()
     const run = buildRunCell(task)
     const cancel = buildCancelCell(task)
-    return `| ${id} | ${status} | ${prompt} | ${schedule} | ${nextRun} | ${run} | ${cancel} |`
+    return `| ${id} | ${status} | ${channel} | ${prompt} | ${schedule} | ${nextRun} | ${run} | ${cancel} |`
   })
   return [header, separator, ...rows].join('\n')
 }
