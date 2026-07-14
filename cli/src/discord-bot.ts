@@ -52,6 +52,7 @@ import {
 } from './system-message.js'
 import YAML from 'yaml'
 import {
+  getFileAttachments,
   getTextAttachments,
   resolveMentions,
 } from './message-formatting.js'
@@ -1224,7 +1225,10 @@ export async function startDiscordBot({
         `[BOT_SESSION] Detected bot-initiated thread: ${thread.name}`,
       )
 
-      const textAttachmentsContent = await getTextAttachments(starterMessage)
+      const [textAttachmentsContent, fileAttachments] = await Promise.all([
+        getTextAttachments(starterMessage),
+        getFileAttachments(starterMessage),
+      ])
       const messageText = resolveMentions(starterMessage).trim()
       const prompt = textAttachmentsContent
         ? `${messageText}\n\n${textAttachmentsContent}`
@@ -1399,7 +1403,12 @@ export async function startDiscordBot({
           const permissionRules = await getChannelReferencePermissionRules({
             message: starterMessage,
           })
-          return { prompt, permissionRules, mode: 'opencode' }
+          return {
+            prompt,
+            permissionRules,
+            mode: 'opencode',
+            ...(fileAttachments.length > 0 && { images: fileAttachments }),
+          }
         },
       })
     } catch (error) {

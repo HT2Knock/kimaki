@@ -526,6 +526,11 @@ Important:
 - Do NOT tell that prompt to "create a new worktree" again, or it can create recursive worktree threads.
 - Ask the new session to operate on its current checkout only (e.g. "validate current worktree", "run checks in this repo").
 
+Use --file to attach local files (images, text files, PDFs) to the message:
+
+kimaki send --channel ${channelId} --prompt 'Review this screenshot' --file /path/to/screenshot.png --agent <current_agent>${parentSessionArg}${userArg}
+kimaki send --thread <thread_id> --prompt 'Here is the error log' --file ./error.log --file ./stack-trace.txt --agent <current_agent>
+
 Use --agent to specify which agent to use for the session:
 
 kimaki send --channel ${channelId} --prompt 'Plan the refactor of the auth module' --agent plan${parentSessionArg}${userArg}

@@ -214,6 +214,7 @@ export async function sendDiscordMessageWithOptionalAttachment({
   embeds,
   rest,
   splitInsteadOfAttach,
+  files,
 }: {
   channelId: string
   prompt: string
@@ -224,8 +225,78 @@ export async function sendDiscordMessageWithOptionalAttachment({
    *  being attached as a file. Useful for notify-only messages where the content
    *  should be directly visible in the channel. */
   splitInsteadOfAttach?: boolean
+  /** Local file paths to attach to the message (images, text files, etc.). */
+  files?: string[]
 }): Promise<{ id: string }> {
   const discordMaxLength = 2000
+
+  // When files are provided, always use multipart FormData upload
+  if (files?.length) {
+    const { DISCORD_DEFAULT_MAX_FILE_SIZE } = await import('./discord-utils.js')
+    const { default: mime } = await import('mime')
+
+    for (const file of files) {
+      if (!fs.existsSync(file)) {
+        throw new Error(`File not found: ${file}`)
+      }
+      const stat = fs.statSync(file)
+      if (stat.size > DISCORD_DEFAULT_MAX_FILE_SIZE) {
+        const fileMB = (stat.size / 1024 / 1024).toFixed(1)
+        const limitMB = (DISCORD_DEFAULT_MAX_FILE_SIZE / 1024 / 1024).toFixed(0)
+        throw new Error(
+          `File "${path.basename(file)}" is ${fileMB} MB, which exceeds Discord's ${limitMB} MB upload limit`,
+        )
+      }
+    }
+
+    // If prompt is too long, truncate it for the message content since the
+    // user can still see the full prompt via thread context
+    const content =
+      prompt.length <= discordMaxLength
+        ? prompt
+        : prompt.slice(0, discordMaxLength - 4) + '...'
+
+    const attachments = files.map((file, index) => ({
+      id: index,
+      filename: path.basename(file),
+    }))
+
+    const formData = new FormData()
+    formData.append(
+      'payload_json',
+      JSON.stringify({
+        content,
+        attachments,
+        embeds,
+        allowed_mentions: { parse: store.getState().allowedMentions },
+      }),
+    )
+
+    for (const [index, file] of files.entries()) {
+      const buffer = fs.readFileSync(file)
+      const mimeType = mime.getType(file) || 'application/octet-stream'
+      formData.append(
+        `files[${index}]`,
+        new Blob([buffer], { type: mimeType }),
+        path.basename(file),
+      )
+    }
+
+    const response = await fetch(
+      discordApiUrl(`/channels/${channelId}/messages`),
+      {
+        method: 'POST',
+        headers: { Authorization: `Bot ${botToken}` },
+        body: formData,
+      },
+    )
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`Discord API error: ${response.status} - ${error}`)
+    }
+    return (await response.json()) as { id: string }
+  }
+
   if (prompt.length <= discordMaxLength) {
     return (await rest.post(Routes.channelMessages(channelId), {
       body: {
