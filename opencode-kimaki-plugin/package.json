@@ -30,7 +30,7 @@
   ],
   "scripts": {
     "build": "tsc",
-    "prepublishOnly": "rimraf dist \"*.tsbuildinfo\" && pnpm build"
+    "prepublishOnly": "rm -rf dist *.tsbuildinfo && pnpm build"
   },
   "repository": {
     "type": "git",
