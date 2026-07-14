@@ -841,9 +841,9 @@ describe('worktree lifecycle', () => {
         » **kimaki-cli:**
         Reply with exactly: send-auto-wt-SUFFIX
         [embed]
-        🌳 **Worktree: opencode/kimaki-rply-wth-exctly-snd-at-wt-SUFFIX**
+        🌳 **Worktree: opencode/kimaki-rply-wth-exctly-snd-at-wt-l8kct**
         📁 \`/tmp/worktrees/WORKTREE_NAME\`
-        🌿 Branch: \`opencode/kimaki-rply-wth-exctly-snd-at-wt-SUFFIX\`
+        🌿 Branch: \`opencode/kimaki-rply-wth-exctly-snd-at-wt-l8kct\`
         *using deterministic-provider/deterministic-v2*
         ⬥ ok"
       `)
