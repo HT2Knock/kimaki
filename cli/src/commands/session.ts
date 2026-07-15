@@ -1,12 +1,20 @@
 // /new-session command - Start a new OpenCode session.
+// Works in both text channels and threads. When used in a thread, the new
+// session inherits the same working directory (worktree/workspace) so the
+// user stays in the same folder context.
 
-import { ChannelType, type TextChannel } from 'discord.js'
+import { ChannelType, type TextChannel, type ThreadChannel } from 'discord.js'
 import fs from 'node:fs'
 import path from 'node:path'
 import type { CommandContext, AutocompleteContext } from './types.js'
 import { getChannelDirectory } from '../database.js'
 import { initializeOpencodeForDirectory } from '../opencode.js'
-import { SILENT_MESSAGE_FLAGS, resolveProjectDirectoryFromAutocomplete } from '../discord-utils.js'
+import {
+  SILENT_MESSAGE_FLAGS,
+  resolveProjectDirectoryFromAutocomplete,
+  resolveWorkingDirectory,
+  resolveTextChannel,
+} from '../discord-utils.js'
 import { getOrCreateRuntime } from '../session-handler/thread-session-runtime.js'
 import { createLogger, LogPrefix } from '../logger.js'
 import * as errore from 'errore'
@@ -24,19 +32,49 @@ export async function handleSessionCommand({
   const agent = command.options.getString('agent') || undefined
   const channel = command.channel
 
-  if (!channel || channel.type !== ChannelType.GuildText) {
-    await command.editReply('This command can only be used in text channels')
+  const isThread = channel && [
+    ChannelType.PublicThread,
+    ChannelType.PrivateThread,
+    ChannelType.AnnouncementThread,
+  ].includes(channel.type)
+
+  if (!channel || (channel.type !== ChannelType.GuildText && !isThread)) {
+    await command.editReply('This command can only be used in text channels or threads')
     return
   }
 
-  const channelConfig = await getChannelDirectory(channel.id)
-  const projectDirectory = channelConfig?.directory
+  // Resolve project and working directories.
+  // In a thread: inherit from the thread's session (worktree/workspace aware).
+  // In a text channel: look up the channel's configured directory.
+  let projectDirectory: string
+  let sdkDirectory: string
+  let textChannel: TextChannel
 
-  if (!projectDirectory) {
-    await command.editReply(
-      'This channel is not configured with a project directory',
-    )
-    return
+  if (isThread) {
+    const threadChannel = channel as ThreadChannel
+    const resolved = await resolveWorkingDirectory({ channel: threadChannel })
+    if (!resolved) {
+      await command.editReply('Could not determine project directory for this thread')
+      return
+    }
+    projectDirectory = resolved.projectDirectory
+    sdkDirectory = resolved.workingDirectory
+
+    const parentChannel = await resolveTextChannel(threadChannel)
+    if (!parentChannel) {
+      await command.editReply('Could not resolve parent text channel')
+      return
+    }
+    textChannel = parentChannel
+  } else {
+    const channelConfig = await getChannelDirectory(channel.id)
+    if (!channelConfig?.directory) {
+      await command.editReply('This channel is not configured with a project directory')
+      return
+    }
+    projectDirectory = channelConfig.directory
+    sdkDirectory = channelConfig.directory
+    textChannel = channel as TextChannel
   }
 
   if (!fs.existsSync(projectDirectory)) {
@@ -61,8 +99,8 @@ export async function handleSessionCommand({
       fullPrompt = `${prompt}\n\n@${files.join(' @')}`
     }
 
-    const starterMessage = await channel.send({
-      content: `🚀 **Starting OpenCode session**\n📝 ${prompt}${files.length > 0 ? `\n📎 Files: ${files.join(', ')}` : ''}`,
+    const starterMessage = await textChannel.send({
+      content: `**Starting OpenCode session**\n${prompt}${files.length > 0 ? `\nFiles: ${files.join(', ')}` : ''}`,
       flags: SILENT_MESSAGE_FLAGS,
     })
 
@@ -81,8 +119,8 @@ export async function handleSessionCommand({
       threadId: thread.id,
       thread,
       projectDirectory,
-      sdkDirectory: projectDirectory,
-      channelId: channel.id,
+      sdkDirectory,
+      channelId: textChannel.id,
       appId,
     })
     await runtime.enqueueIncoming({
