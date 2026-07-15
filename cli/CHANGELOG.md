@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.22.0
+
+1. **`--file` option for `kimaki send`** — attach local files (images, text files, PDFs) to Discord messages when creating threads or sending to existing ones.
+
+   ```bash
+   # Attach a screenshot to a new thread
+   kimaki send --channel <channelId> --prompt 'Review this screenshot' --file ./screenshot.png
+
+   # Attach multiple files to an existing thread
+   kimaki send --thread <threadId> --prompt 'Here are the logs' --file ./error.log --file ./trace.txt
+   ```
+
+   Files are uploaded as Discord attachments on the starter message. Images and PDFs are passed to the AI model as visual context; text files are inlined into the prompt. File size is validated against Discord's 25 MB limit before upload. Not compatible with `--send-at` (scheduled tasks store prompts as text).
+
+2. **`/new-session` now works inside threads** — previously `/new-session` only worked in text channels. When used in a thread, the new session inherits the same working directory (worktree or workspace), and the new thread is created in the parent text channel.
+
+3. **`--all` flag for `kimaki project list`** — when multiple kimaki instances share the same Discord server (different machines), `--all` scans the Kimaki category to discover text channels created by other instances.
+
+   ```bash
+   # Show local projects only (default)
+   kimaki project list
+
+   # Include remote projects from other machines
+   kimaki project list --all
+
+   # Machine-readable with is_local field
+   kimaki project list --all --json
+   ```
+
+   Remote projects show as `[remote]` with `(Not registered on this machine)` instead of a directory path. Use `--guild <id>` to specify which guild to scan when no local projects exist yet.
+
+4. **Auto-resolve remote ref for worktree base branches** — when creating a worktree with `--base-branch main`, kimaki now fetches the latest from `upstream` (then `origin`) and uses the remote ref if it's strictly ahead of the local branch. Avoids creating worktrees from stale local branches. Explicit remote refs like `origin/main` are passed through unchanged. Closes [#138](https://github.com/remorses/kimaki/issues/138)
+
+5. **Fix `/btw` and `. btw` suffix using wrong directory in worktree threads** — sessions forked via `/btw` or the `. btw` suffix, and user-defined OpenCode commands, now correctly use the worktree path instead of the base project directory.
+
+6. **Fix `kimaki send --channel` ignoring worktree toggle** — `kimaki send --channel` now auto-creates worktrees when `/toggle-worktrees` is enabled for the channel or when the global `--worktrees` flag is set. Previously, worktrees were only created when `--worktree` was explicitly passed.
+
+7. **Fix queue items removed by embed-only message updates** — Discord fires `MESSAGE_UPDATE` for link preview unfurling even when the user didn't edit the message. These events (`editedTimestamp = null`) no longer cause queued messages to be spuriously removed.
+
+8. **Channel column in `/tasks` output** — scheduled task listings now show the associated Discord channel as a clickable mention between the Status and Prompt columns.
+
+9. **Session ID shown alongside thread ID in system message** — agents now see both `--thread <threadId>` (preferred for cross-machine) and `--session <sessionId>` (fallback) in the system message, so they can reference the current session using either method.
+
 ## 0.21.0
 
 1. **Guild name and ID in `kimaki project list`** — project listings now show which Discord server each channel belongs to, making it easy to distinguish channels with the same name across different servers.
