@@ -733,9 +733,15 @@ export async function startDiscordBot({
             ? extractBtwSuffix(message.content || '')
             : null
         if (btwResult?.forceBtw && projectDirectory && !isLeadingMentionToOtherUser) {
+          const btwSdkDir =
+            worktreeInfo?.status === 'ready' &&
+            worktreeInfo.workspace_directory
+              ? worktreeInfo.workspace_directory
+              : projectDirectory
           const result = await forkSessionToBtwThread({
             sourceThread: thread,
             projectDirectory,
+            sdkDirectory: btwSdkDir,
             prompt: btwResult.prompt,
             userId: message.author.id,
             username:

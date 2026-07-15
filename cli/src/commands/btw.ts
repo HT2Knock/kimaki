@@ -26,6 +26,7 @@ const logger = createLogger(LogPrefix.FORK)
 export async function forkSessionToBtwThread({
   sourceThread,
   projectDirectory,
+  sdkDirectory,
   prompt,
   userId,
   username,
@@ -33,6 +34,8 @@ export async function forkSessionToBtwThread({
 }: {
   sourceThread: ThreadChannel
   projectDirectory: string
+  /** Worktree directory when forking from a worktree thread, otherwise same as projectDirectory */
+  sdkDirectory: string
   prompt: string
   userId: string
   username: string
@@ -115,7 +118,7 @@ export async function forkSessionToBtwThread({
     threadId: thread.id,
     thread,
     projectDirectory,
-    sdkDirectory: projectDirectory,
+    sdkDirectory,
     channelId,
     appId,
   })
@@ -176,7 +179,7 @@ export async function handleBtwCommand({
     return
   }
 
-  const { projectDirectory } = resolved
+  const { projectDirectory, workingDirectory } = resolved
 
   await command.deferReply({ flags: MessageFlags.Ephemeral })
 
@@ -184,6 +187,7 @@ export async function handleBtwCommand({
     const result = await forkSessionToBtwThread({
       sourceThread: threadChannel,
       projectDirectory,
+      sdkDirectory: workingDirectory,
       prompt,
       userId: command.user.id,
       username: command.user.displayName,
