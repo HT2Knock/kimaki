@@ -608,6 +608,13 @@ kimaki task delete <id>
 
 \`kimaki session list\` also shows if a session was started by a scheduled \`delay\` or \`cron\` task, including task ID when available.
 
+**Never duplicate tasks to run more frequently.** If a task should run twice a day (morning and evening), edit the existing task's cron expression instead of creating a second task. Cron supports comma-separated hours:
+
+\`\`\`bash
+# runs at 9:00 UTC and 18:00 UTC every day
+kimaki task edit <id> --send-at '0 9,18 * * *'
+\`\`\`
+
 Use case patterns:
 - Reminder flows: create deadline reminders with one-time \`--send-at\` and \`--notify-only\`; mention only if action is required.
 - Proactive reminders: when you encounter time-sensitive information (API key expiration, certificate renewal, trial ending), schedule a \`--notify-only\` reminder before the deadline. Always tell the user you scheduled the reminder so they know.
