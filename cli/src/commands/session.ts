@@ -7,7 +7,12 @@ import { ChannelType, type TextChannel, type ThreadChannel } from 'discord.js'
 import fs from 'node:fs'
 import path from 'node:path'
 import type { CommandContext, AutocompleteContext } from './types.js'
-import { getChannelDirectory } from '../database.js'
+import {
+  getChannelDirectory,
+  getThreadWorktreeOrWorkspace,
+  createPendingWorkspace,
+  setWorkspaceReady,
+} from '../database.js'
 import { initializeOpencodeForDirectory } from '../opencode.js'
 import {
   SILENT_MESSAGE_FLAGS,
@@ -35,7 +40,6 @@ export async function handleSessionCommand({
   const isThread = channel && [
     ChannelType.PublicThread,
     ChannelType.PrivateThread,
-    ChannelType.AnnouncementThread,
   ].includes(channel.type)
 
   if (!channel || (channel.type !== ChannelType.GuildText && !isThread)) {
@@ -49,23 +53,27 @@ export async function handleSessionCommand({
   let projectDirectory: string
   let sdkDirectory: string
   let textChannel: TextChannel
+  let sourceWorkspace: Awaited<ReturnType<typeof getThreadWorktreeOrWorkspace>> | undefined
 
   if (isThread) {
     const threadChannel = channel as ThreadChannel
-    const resolved = await resolveWorkingDirectory({ channel: threadChannel })
+    const [resolved, parentChannel, workspace] = await Promise.all([
+      resolveWorkingDirectory({ channel: threadChannel }),
+      resolveTextChannel(threadChannel),
+      getThreadWorktreeOrWorkspace(threadChannel.id),
+    ])
     if (!resolved) {
       await command.editReply('Could not determine project directory for this thread')
       return
     }
-    projectDirectory = resolved.projectDirectory
-    sdkDirectory = resolved.workingDirectory
-
-    const parentChannel = await resolveTextChannel(threadChannel)
     if (!parentChannel) {
       await command.editReply('Could not resolve parent text channel')
       return
     }
+    projectDirectory = resolved.projectDirectory
+    sdkDirectory = resolved.workingDirectory
     textChannel = parentChannel
+    sourceWorkspace = workspace
   } else {
     const channelConfig = await getChannelDirectory(channel.id)
     if (!channelConfig?.directory) {
@@ -109,6 +117,22 @@ export async function handleSessionCommand({
       autoArchiveDuration: 1440,
       reason: 'OpenCode session',
     })
+
+    // Persist workspace association so commands in the new thread resolve the
+    // correct working directory, and the runtime survives bot restarts.
+    if (sourceWorkspace?.status === 'ready' && sourceWorkspace.workspace_directory) {
+      await createPendingWorkspace({
+        threadId: thread.id,
+        workspaceType: sourceWorkspace.workspace_type,
+        workspaceName: sourceWorkspace.workspace_name ?? '',
+        projectDirectory,
+      })
+      await setWorkspaceReady({
+        threadId: thread.id,
+        workspaceId: sourceWorkspace.workspace_id ?? undefined,
+        workspaceDirectory: sourceWorkspace.workspace_directory,
+      })
+    }
 
     // Add user to thread so it appears in their sidebar
     await thread.members.add(command.user.id)
