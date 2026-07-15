@@ -1090,6 +1090,10 @@ export async function startDiscordBot({
       if (!message) return
       if (message.author.bot) return
       if (!message.content) return
+      // Discord fires MESSAGE_UPDATE for embed-only updates (link preview
+      // unfurling) without the user actually editing the message content.
+      // editedTimestamp is null for these; skip them to avoid false queue removals.
+      if (!message.editedTimestamp) return
 
       const channel = message.channel
       const isThread = [
