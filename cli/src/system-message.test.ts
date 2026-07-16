@@ -812,7 +812,7 @@ describe('system-message', () => {
       - Main repo path (previous folder, DO NOT TOUCH): /repo
       - To find the base branch (the branch this worktree was created from): \`git -C /repo symbolic-ref --short HEAD\`
       - To find the base commit (the commit this worktree diverged from): \`git merge-base <base-branch> HEAD\`
-      You MUST read, write, and edit files only under the new worktree path /repo/.worktrees/prompt-cache. You MUST NOT read, write, or edit any files under the main repo path /repo — even though it is the same project, that folder is a separate checkout and the user or another agent may be actively working there, so writing to it would override their unrelated changes. Run all checks (tests, builds, lint) inside the new worktree. Do not create another worktree by default. Ask before merging changes back to the main branch.
+      You MUST read, write, and edit files only under the new worktree path /repo/.worktrees/prompt-cache. You MUST NOT read, write, or edit any files under the main repo path /repo — even though it is the same project, that folder is a separate checkout and the user or another agent may be actively working there, so writing to it would override their unrelated changes. Run all checks (tests, builds, lint) inside the new worktree. Do not create another worktree by default. To merge this worktree into the main branch, run \`kimaki merge-worktree\`. If it reports rebase conflicts, resolve them and rerun until it succeeds.
       </system-reminder>
       "
     `)
