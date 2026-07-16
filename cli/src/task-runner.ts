@@ -59,7 +59,10 @@ async function executeThreadScheduledTask({
   const marker: ThreadStartMarker = {
     start: true,
     scheduledKind: task.schedule_kind,
-    scheduledTaskId: task.id,
+    // Only include scheduledTaskId for cron tasks. One-shot tasks are deleted
+    // after execution, so the ID would be stale by the time the bot processes
+    // the Discord event and tries to insert a session_start_sources row.
+    ...(task.schedule_kind === 'cron' ? { scheduledTaskId: task.id } : {}),
     ...(payload.agent ? { agent: payload.agent } : {}),
     ...(payload.model ? { model: payload.model } : {}),
     ...(payload.username ? { username: payload.username } : {}),
@@ -105,7 +108,8 @@ async function executeChannelScheduledTask({
     : {
         start: true,
         scheduledKind: task.schedule_kind,
-        scheduledTaskId: task.id,
+        // Only include scheduledTaskId for cron tasks (see thread variant comment)
+        ...(task.schedule_kind === 'cron' ? { scheduledTaskId: task.id } : {}),
         ...(payload.worktreeName ? { worktree: payload.worktreeName } : {}),
         ...(payload.cwd ? { cwd: payload.cwd } : {}),
         ...(payload.agent ? { agent: payload.agent } : {}),
