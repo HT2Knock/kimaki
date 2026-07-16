@@ -10,7 +10,7 @@ import {
   markScheduledTaskCronRescheduled,
   markScheduledTaskCronRetry,
   markScheduledTaskFailed,
-  markScheduledTaskOneShotCompleted,
+  deleteScheduledTask,
   recoverStaleRunningScheduledTasks,
   type ScheduledTask,
 } from './database.js'
@@ -222,7 +222,7 @@ async function finalizeSuccessfulTask({
   completedAt: Date
 }): Promise<void> {
   if (task.schedule_kind === 'at') {
-    await markScheduledTaskOneShotCompleted({ taskId: task.id, completedAt })
+    await deleteScheduledTask(task.id)
     return
   }
 

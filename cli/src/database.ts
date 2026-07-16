@@ -193,10 +193,9 @@ export async function recoverStaleRunningScheduledTasks({ staleBefore }: { stale
   return countRows(rows)
 }
 
-export async function markScheduledTaskOneShotCompleted({ taskId, completedAt }: { taskId: number; completedAt: Date }) {
+export async function deleteScheduledTask(taskId: number) {
   const db = await getDb()
-  await db.update(schema.scheduled_tasks)
-    .set({ status: 'completed', last_run_at: completedAt, running_started_at: null, last_error: null })
+  await db.delete(schema.scheduled_tasks)
     .where(orm.eq(schema.scheduled_tasks.id, taskId))
 }
 
