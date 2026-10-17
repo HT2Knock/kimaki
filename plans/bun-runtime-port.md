@@ -36,7 +36,7 @@ Every place that assumes "the current process is Node":
 
 | Site | Current assumption | Port |
 | --- | --- | --- |
-| `kimaki/src/cli.ts` | `#!/usr/bin/env node` | runtime-neutral shebang plus a resolved binary |
+| `kimaki/src/cli.ts` | `#!/usr/bin/env node` | kept: an npm install runs on Node for users without Bun. `bun dist/cli.js` works. Making Bun the default is an open product call, see the report |
 | `kimaki/src/cli/bot.ts` | re-spawns `process.execPath` with `process.execArgv` | spawn the current runtime explicitly |
 | `kimaki/src/test/harness.ts` | `process.execPath --import tsx src/cli.ts` | one helper that builds the run command per runtime |
 | `kimaki/src/autostart.ts` | writes a `.command` that runs `process.execPath` | same helper |
