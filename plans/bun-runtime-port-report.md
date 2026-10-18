@@ -1,5 +1,11 @@
 # Bun runtime port: results
 
+> Superseded in part by a follow-up (commit `08d60bdf`): the user asked for Bun
+> only, so kimaki no longer supports Node. `runtime.ts` has no runtime switch,
+> `dist/cli.js` starts with `#!/usr/bin/env bun`, the `tsx` dev dependency is
+> gone, and the suite runs with `bun run test`. The rows below still describe how
+> the Bun path was first proven.
+
 Branch `bun-runtime` in this fork, based on `remorses/kimaki` at `e8aceec5`.
 The decision trail is `decisions.tsv` in the repo root.
 
