@@ -29,7 +29,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "prepublishOnly": "rimraf dist \"*.tsbuildinfo\" && pnpm build",
+    "prepublishOnly": "rimraf dist \"*.tsbuildinfo\" && bun run build",
     "test": "vitest",
     "typecheck": "tsc"
   },

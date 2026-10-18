@@ -30,7 +30,7 @@
   },
   "scripts": {
     "build": "rm -rf dist *.tsbuildinfo && tsc",
-    "prepublishOnly": "pnpm build",
+    "prepublishOnly": "bun run build",
     "test": "vitest"
   },
   "repository": {
