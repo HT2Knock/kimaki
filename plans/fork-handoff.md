@@ -160,6 +160,9 @@ self-hosted on knockon.
 
 - `AGENTS.md` — repo rules and entry points.
 - `plans/fork-feature-trim.md` — keep/remove analysis with sizes.
+- `plans/fork-maintenance-research.md` — best practices for a fork of this
+  shape: rebase onto upstream release tags, exclude workspaces instead of
+  deleting them, and the self-hosted and Bun details.
 - `decisions.tsv` — one row per decision, with evidence.
 - `~/Documents/T2Knock/JT-notes/tech/remote_agent_iphone7.md` — the setup.
 - `~/Documents/T2Knock/JT-notes/routines/daily-workout-coach.md` — a live routine.
