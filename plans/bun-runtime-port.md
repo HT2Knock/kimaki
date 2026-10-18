@@ -1,5 +1,9 @@
 # Bun runtime port plan
 
+> Superseded in part by a follow-up (commit `08d60bdf`): the user asked for Bun
+> only, so the "Node stays supported" scope below no longer holds. See
+> `plans/bun-runtime-port-report.md`.
+
 Branch: `bun-runtime` in `HT2Knock/kimaki`.
 Base commit: `e8aceec5`.
 
