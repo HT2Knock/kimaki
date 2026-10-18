@@ -61,7 +61,32 @@ KIMAKI_DATA_DIR=/tmp/kimaki-livedb bun src/cli.ts routine list
 `.backup` is the SQLite backup API: it does not write to the live file, so the
 running bot is untouched. `--data-dir` works too.
 
-### Known property kept from Drizzle
+### Performance (measured 2026-10-18)
+
+Same SQLite file, same seeded data, one process, median of 5 rounds of the loop
+(2000 lookups, 500 wide reads, 500 writes, 500 nested reads, 300 `IN` reads).
+The old path is Drizzle over `bun:sqlite`, awaited. The new path is the tagged
+template plus `parseRows`. `bun:sqlite` raw is the floor, with no query layer.
+
+| operation | drizzle | bun:sqlite raw | Bun.SQL | new vs old |
+| --- | --- | --- | --- | --- |
+| findFirst by primary key | 31.1us | 2.0us | 6.4us | 4.9x faster |
+| findMany, 200 rows | 92.6us | 29.3us | 49.1us | 1.9x faster |
+| update one row by key | 19.3us | 2.4us | 10.7us | 1.8x faster |
+| upsert one row | 23.2us | 2.3us | 13.7us | 1.7x faster |
+| nested read (4 relations) | 122.8us | 2.3us | 11.3us | 10.8x faster |
+| `IN` list, 50 ids | 149.7us | 104.3us | 114.2us | 1.3x faster |
+
+The nested read gains the most: Drizzle's relational loader issued one query per
+relation, and the replacements are one `LEFT JOIN`. Drizzle's cost over the raw
+client is about 29us per simple query, which matches the earlier estimate. The
+`IN` list is limited by SQLite scanning text, not by the client.
+
+These are microbenchmarks on a local file. End-to-end latency is dominated by
+OpenCode and Discord, and the bot start time did not change (about 8s, measured
+before this change).
+
+
 
 `toDbDate` writes ISO (`…T…Z`), while `CURRENT_TIMESTAMP` defaults and the V1
 import write `YYYY-MM-DD HH:MM:SS`. SQLite compares both as text, so a
