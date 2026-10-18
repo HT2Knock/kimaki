@@ -63,10 +63,19 @@ running bot is untouched. `--data-dir` works too.
 
 ### Performance (measured 2026-10-18)
 
-Same SQLite file, same seeded data, one process, median of 5 rounds of the loop
-(2000 lookups, 500 wide reads, 500 writes, 500 nested reads, 300 `IN` reads).
-The old path is Drizzle over `bun:sqlite`, awaited. The new path is the tagged
-template plus `parseRows`. `bun:sqlite` raw is the floor, with no query layer.
+Same SQLite file (WAL), one process, median of 5 rounds. Bun 1.4.2 on macOS.
+Rows seeded first: 2000 `thread_sessions`, 200 `channel_directories` with one
+`channel_models`, `channel_agents` and `channel_worktrees` row each, 500
+`scheduled_tasks`. Loops: 2000 primary-key lookups, 500 wide reads (200 rows),
+500 updates, 500 upserts, 500 nested reads, 300 `IN` reads (50 ids).
+
+The three columns:
+- `drizzle`: Drizzle over `bun:sqlite`, awaited, with its relational loader for
+  the nested case (`findFirst({ with: { channel_model, channel_agent,
+  channel_worktree } })`).
+- `bun:sqlite raw`: `Database.query(...).get()/.all()/.run()` with no query
+  layer, no date mapping and no promises. This is the floor.
+- `Bun.SQL`: the tagged template plus `parseRows`, as the code runs it.
 
 | operation | drizzle | bun:sqlite raw | Bun.SQL | new vs old |
 | --- | --- | --- | --- | --- |
@@ -77,16 +86,23 @@ template plus `parseRows`. `bun:sqlite` raw is the floor, with no query layer.
 | nested read (4 relations) | 122.8us | 2.3us | 11.3us | 10.8x faster |
 | `IN` list, 50 ids | 149.7us | 104.3us | 114.2us | 1.3x faster |
 
-The nested read gains the most: Drizzle's relational loader issued one query per
-relation, and the replacements are one `LEFT JOIN`. Drizzle's cost over the raw
-client is about 29us per simple query, which matches the earlier estimate. The
-`IN` list is limited by SQLite scanning text, not by the client.
+The nested read gains the most: the replacement is one `LEFT JOIN`, and the
+Drizzle path cost about 4x its own `findMany` for the same one channel row.
+Drizzle's overhead over the raw client is about 29us on the primary-key lookup
+(31.1 minus 2.0), and more on the wide and nested reads. `Bun.SQL` stays 2-3x
+above the raw floor on the small operations because it adds tagged-template
+parsing, a promise per query (the raw calls are synchronous) and `parseRows`;
+the gap is smaller on the wide and `IN` rows, where SQLite reading the rows
+dominates.
+
+The benchmark script is not kept: it imported the deleted `src/schema.ts` and
+`drizzle-orm`. Re-create it from this description if the numbers need a recheck.
 
 These are microbenchmarks on a local file. End-to-end latency is dominated by
-OpenCode and Discord, and the bot start time did not change (about 8s, measured
-before this change).
+OpenCode and Discord; the bot start time (about 8s) was measured before this
+change and this benchmark does not re-measure it.
 
-
+### Known property kept from Drizzle
 
 `toDbDate` writes ISO (`…T…Z`), while `CURRENT_TIMESTAMP` defaults and the V1
 import write `YYYY-MM-DD HH:MM:SS`. SQLite compares both as text, so a
