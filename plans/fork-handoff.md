@@ -92,6 +92,20 @@ fork. A Discord reply is the user's check.
 Rollback: `/tmp/kimaki.service.bak` is the old unit, and
 `~/.kimaki.bak-20261018-164809` is the data dir before the switch.
 
+To ship a new commit to the running bot:
+
+1. On the Mac, `git push origin bun-runtime`.
+2. On knockon:
+   `git -C ~/workspace/github.com/HT2Knock/kimaki pull --ff-only`, then
+   `cd ~/workspace/github.com/HT2Knock/kimaki && ~/.bun/bin/bun install`, then
+   `cd kimaki && ~/.bun/bin/bun run build`, then
+   `systemctl --user restart kimaki.service`.
+3. Check `~/.kimaki/bin/kimaki status` reports `runtime: bun` and the log shows
+   `bot ready`.
+
+The unit file edit lives in `~/dotfiles` on knockon and is **not committed**
+there. The dotfiles checkout has other local changes too.
+
 ### 3. Close the deferred items
 
 `bun-runtime` is pushed to `origin`. Still open: the submodule scripts, whether
