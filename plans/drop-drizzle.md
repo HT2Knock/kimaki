@@ -1,11 +1,52 @@
 # Drop Drizzle for Bun.SQL
 
 Purpose: replace `drizzle-orm` with the SQL client that Bun ships, so the fork
-has no query builder and no beta dependency. This is the plan for the next
-session; the work is not started.
+has no query builder and no beta dependency.
 
 Decision (user, 2026-10-18): the downstream delta is accepted. Bun ships the
 driver, so the extra dependency is not needed.
+
+## Status: done on branch `drop-drizzle` (2026-10-18)
+
+Applied as planned, with these choices:
+
+- `src/rows.ts` is new: one row type per table, the `TableName` constants, and the
+  datetime boundary (`parseRows` / `parseFirst` / `toDate` / `toDbDate`). Read
+  paths pass query results through it, so row fields stay `Date` like Drizzle's
+  driver made them; write paths use `toDbDate`.
+- `src/db.ts` opens `Bun.SQL` (`sqlite://<path>`) and keeps the `openDb` contract,
+  the WAL and `busy_timeout` pragmas, the required-table check and
+  `DbNotMigratedError`.
+- `src/migrations.ts` **stays on `bun:sqlite`**: it is already raw SQL, and the V1
+  import is the riskiest path. `ATTACH ... mode=ro` is unchanged.
+- Every UPDATE and upsert `DO UPDATE` sets `updated_at = $now` by hand, because
+  Drizzle's `$onUpdate` did that implicitly.
+- The 10 nested `with:` relation queries became `LEFT JOIN`s or two queries.
+  Dynamic `where`/`orderBy` and dynamic `set` objects use `db.unsafe` with bound
+  `?` values; column names and table names come from code, never from data.
+- `src/schema.ts` and `scripts/generate-schema-sql.ts` are deleted. `SCHEMA_SQL`
+  in `src/schema-sql.ts` is hand-maintained and mirrors `src/rows.ts`.
+- Type convention: Bun's tag takes the row **array** type, so reads are
+  `db<Row[]>`, writes with no `RETURNING` are `db<unknown[]>`.
+
+Verified:
+
+- `bun install` exits 0; `bun.lock` has no `drizzle` entry; `kimaki/package.json`
+  has neither package.
+- `cd kimaki && bun run build` is clean.
+- `bun run test -u` and `bun run test` are 182 of 182 across 51 files, and no
+  snapshot changed (the second run had no `-u`).
+- Read-only check against a `.backup` copy of the live knockon database:
+  `kimaki project list` and `kimaki routine list` print the real rows, so the new
+  client opens the existing `~/.kimaki/kimaki.db` and the LEFT JOIN + date
+  parsing paths work on real data.
+
+Not done here: the running bot still uses the previous build. Deploy after the
+user checks the branch (see `plans/fork-handoff.md`).
+
+Cost: the next upstream sync will conflict on the query code in the files
+upstream edits most. That is the accepted delta.
+
 
 ## Verified on this machine (2026-10-18)
 

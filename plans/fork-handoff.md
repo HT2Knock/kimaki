@@ -134,12 +134,13 @@ of the same use.
 `bun-runtime` is pushed to `origin`. Still open: the submodule scripts, whether
 Node-for-install is acceptable, and the deferred feature work below.
 
-### 4. Next session: drop Drizzle for Bun.SQL
+### 4. Next session: drop Drizzle for Bun.SQL — done (2026-10-18)
 
-Planned, not started. See `plans/drop-drizzle.md`. Replaces `drizzle-orm` and
-`drizzle-kit` with the SQL client Bun ships (`new SQL("sqlite://...")` with
-tagged templates). 51 non-test call sites across 19 files, 14 tables, 10 nested
-relation queries. Accepted cost: a permanent downstream delta in the query code.
+Applied on branch `drop-drizzle` (off `bun-runtime`), not yet deployed. See
+`plans/drop-drizzle.md` for the choices and the verification. `drizzle-orm` and
+`drizzle-kit` are gone, `bun run build` is clean, and the suite is 182 of 182.
+`migrations.ts` stays on `bun:sqlite`. The running bot on knockon still uses the
+previous build; deploy after review:
 
 ## Decisions from the user (2026-10-18)
 
