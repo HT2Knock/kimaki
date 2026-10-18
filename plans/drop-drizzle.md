@@ -42,10 +42,32 @@ Verified:
   parsing paths work on real data.
 
 Not done here: the running bot still uses the previous build. Deploy after the
-user checks the branch (see `plans/fork-handoff.md`).
+user checks the branch (see `plans/fork-handoff.md`). Two items from the "Done
+when" list are also still open: a bot turn on knockon, and one attempt at the
+next upstream sync to measure the merge cost.
 
 Cost: the next upstream sync will conflict on the query code in the files
 upstream edits most. That is the accepted delta.
+
+### How to repeat the live check
+
+```bash
+ssh knockon 'sqlite3 ~/.kimaki/kimaki.db ".backup /tmp/kimaki-live-copy.db"'
+mkdir -p /tmp/kimaki-livedb && scp knockon:/tmp/kimaki-live-copy.db /tmp/kimaki-livedb/kimaki.db
+cd kimaki && KIMAKI_DATA_DIR=/tmp/kimaki-livedb bun src/cli.ts project list
+KIMAKI_DATA_DIR=/tmp/kimaki-livedb bun src/cli.ts routine list
+```
+
+`.backup` is the SQLite backup API: it does not write to the live file, so the
+running bot is untouched. `--data-dir` works too.
+
+### Known property kept from Drizzle
+
+`toDbDate` writes ISO (`…T…Z`), while `CURRENT_TIMESTAMP` defaults and the V1
+import write `YYYY-MM-DD HH:MM:SS`. SQLite compares both as text, so a
+same-day comparison between a mixed pair sorts by the space-versus-`T`. Drizzle
+did the same thing (its `toDriver` always wrote ISO), so this is not a
+regression here. It is not covered by a test.
 
 
 ## Verified on this machine (2026-10-18)
