@@ -106,6 +106,29 @@ To ship a new commit to the running bot:
 The unit file edit lives in `~/dotfiles` on knockon and is **not committed**
 there. The dotfiles checkout has other local changes too.
 
+### Performance after the switch (2026-10-18)
+
+Measured on knockon against the old clone (`~/workspace/github.com/remorses/kimaki`,
+node + `@libsql/client`) and the fork (bun + `bun:sqlite`). CLI numbers are the
+median of 10 runs; DB numbers are 2000 single-row reads and 500 autocommit
+writes on a copy of the live DB.
+
+| metric | old | new | change |
+| --- | --- | --- | --- |
+| CLI `--help` | ~197ms | ~93ms | 2.1x faster |
+| CLI `project list` | ~1470ms | ~297ms | ~5x faster |
+| CLI max RSS (`project list`) | ~250MB | ~74MB | 3.4x less |
+| 2000 single-row reads | ~90ms | ~6ms | ~15x faster |
+| 500 autocommit writes | 27ms | 6ms | 4.5x faster |
+| bot start to ready | ~8s | ~8s | same |
+
+The bot start time does not change: the 8s is the OpenCode connection and the
+Discord gateway, not the runtime.
+
+Memory of the running bot: 113MB current and 134MB peak after 1h48m. The old run
+peaked at 975MB over 25h. These are not comparable yet; check again after a day
+of the same use.
+
 ### 3. Close the deferred items
 
 `bun-runtime` is pushed to `origin`. Still open: the submodule scripts, whether
