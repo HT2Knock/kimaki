@@ -89,6 +89,42 @@ Self-hosted (own Discord app) removes the external dependency and the gateway
 branch in `credentials.ts`, at the cost of a one-time Discord app setup.
 Everything else in `plans/fork-feature-trim.md` is removable either way.
 
+## Where to run things
+
+Three separate questions, often confused:
+
+| question | options | affects |
+| --- | --- | --- |
+| Credential mode | gateway (author's bot) or self-hosted (own Discord app) | who owns the Discord app; the repo's gateway branch |
+| Bot host | knockon, `t2knock-lab`, a VPS | where the bot process runs |
+| Agent host | knockon or elsewhere | where OpenCode and the project files live |
+
+Verified facts:
+
+- The bot is light (~70 MB RSS, ~0.06 s start). It is not what loads knockon;
+  OpenCode is. Moving the bot to `t2knock-lab` frees little.
+- Another local machine does not fix a bad internet link. The path to Discord is
+  the internet from wherever the bot runs. Only a host outside the region (a
+  VPS) changes that, and then the bot-to-OpenCode hop is WAN.
+- `!cmd` and all agent tools run on the OpenCode host (`session.shell`), so they
+  follow OpenCode.
+- The bot reaches OpenCode through a service file
+  (`{ id, version, url, pid, password }`); the client builds basic auth from it
+  (`Service.discover` then `Service.headers`). So a remote URL plus password is
+  plausible: write the file on the bot host pointing at knockon's Tailscale URL
+  and the service password.
+- Not supported without work: custom worktrees (`worktrees.ts` runs `git` with
+  `cwd: projectDirectory` on the bot host), local path checks, and
+  `Service.ensure` may try to replace a service whose version mismatches.
+- `plans/remote-opencode-servers.md` covers exactly these gaps, but it is V1
+  (Prisma + hrana) and not ported to V2. Treat it as a roadmap.
+
+Recommendation: go self-hosted, and keep the bot and OpenCode on the same host
+(knockon) until the remote service file is verified. If the bot must live on
+`t2knock-lab`, do it in two steps: first prove the remote service file works
+(point `KIMAKI_OPENCODE_SERVICE_FILE` at knockon's Tailscale URL and password,
+then send a Discord message), then accept or port the worktree gap.
+
 ## Pointers
 
 - `AGENTS.md` — repo rules and entry points.
