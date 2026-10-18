@@ -134,13 +134,24 @@ of the same use.
 `bun-runtime` is pushed to `origin`. Still open: the submodule scripts, whether
 Node-for-install is acceptable, and the deferred feature work below.
 
-### 4. Next session: drop Drizzle for Bun.SQL — done (2026-10-18)
+### 4. Drop Drizzle for Bun.SQL — done and deployed (2026-10-18)
 
-Applied on branch `drop-drizzle` (off `bun-runtime`), not yet deployed. See
-`plans/drop-drizzle.md` for the choices and the verification. `drizzle-orm` and
-`drizzle-kit` are gone, `bun run build` is clean, and the suite is 182 of 182.
-`migrations.ts` stays on `bun:sqlite`. The running bot on knockon still uses the
-previous build; deploy after review:
+Applied on `drop-drizzle` and merged into `bun-runtime` (fast-forward), now at
+`304e97e3`. Deployed to knockon with the recipe above and verified there:
+`kimaki status` reports `runtime: bun`, the bot is ready as Kimaki#4819 on
+gateway shard 0, OpenCode 2.0.32 is connected, 56 commands registered, and
+`kimaki project list` plus `kimaki routine list` read the live `~/.kimaki/kimaki.db`
+through the new client. See `plans/drop-drizzle.md` for the choices, the
+benchmark and the verification.
+
+Note for the next deploy on knockon: `bun install` runs the root `prepare`
+script, which calls `bun` by name, so the SSH command needs
+`export PATH=$HOME/.bun/bin:$PATH` first; `/usr/bin/bash: bun: command not found`
+otherwise. The unit file already has that on PATH.
+
+`kimaki/` also moved from `string-dedent` to `dedent` in `304e97e3`; `traforo`
+(a submodule) and `opencode-auto-mode` (an excluded workspace) still use
+`string-dedent`.
 
 ## Decisions from the user (2026-10-18)
 
