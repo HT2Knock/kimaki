@@ -25,19 +25,24 @@ Two goals, in order:
 
 ## State
 
-Branch `bun-runtime`, based on upstream `e8aceec5`. **Not pushed.**
+Branch `bun-runtime`, rebased onto upstream tag `kimaki@1.2.0` (2026-10-18).
+Pushed to `origin` (HT2Knock/kimaki); the rebase needed one force-push.
 
 | commit | what |
 | --- | --- |
-| `48db9673` … `c13fd82d` | first Bun port: `runtime.ts`, digital-twin TLS |
-| `08d60bdf` | Bun only: shebang, no tsx, scripts on bun |
-| `9bbbf826` | SQLite on `bun:sqlite` |
-| `80008116` | tests on `bun test` |
-| `03e5331d` | install with `bun install` |
-| `52266416`, `4af727ef` | decision log |
+| `94382590` … `f4525502` | first Bun port: `runtime.ts`, digital-twin TLS |
+| `f37438f1` | Bun only: shebang, no tsx, scripts on bun |
+| `5fe75abb` | SQLite on `bun:sqlite` |
+| `1429fab8` | tests on `bun test` |
+| `91c0e49f` | install with `bun install` |
+| `f33afada` | keep only the used workspaces |
+| `6cf3e013`, `aa726f38` | decision log |
 
 Verified on this machine: `kimaki` build clean; `bun run test` in `kimaki/` is
-182 tests across 51 files in ~36s; `bun install --frozen-lockfile` exits 0.
+182 tests across 51 files in ~38s; `bun install --frozen-lockfile` exits 0.
+Verified on knockon: the bot runs the fork on Bun from
+`~/workspace/github.com/HT2Knock/kimaki`, `kimaki status` reports `runtime: bun`,
+OpenCode is connected, and the plugin shims point at the fork.
 The decision trail is `decisions.tsv`; the user-facing summary is
 `.changeset/bun-runtime-support.md`. Repo rules are in `AGENTS.md`.
 
@@ -54,40 +59,64 @@ Caveats to carry forward:
 
 ## Next steps
 
-### 1. Trim to the used subset
+### 1. Trim to the used subset — done (2026-10-18)
 
-Read `plans/fork-feature-trim.md`, pick the groups to remove, delete them.
+Applied by exclusion, not deletion: `workspaces` is an explicit allowlist of the
+6 used packages (`kimaki`, `errore`, `traforo`, `traforo/website`,
+`discord-digital-twin`, `opencode-deterministic-provider`), and `prepare` builds
+only `errore` and `traforo`. The orphan workspaces stay on disk, so upstream
+merges do not hit delete/modify conflicts.
 
-Done when: `bun install` exits 0, `cd kimaki && bun run build` is clean,
-`bun run test` in `kimaki/` is green, and no kept file imports a removed package.
+Result: install 1636 to 1012 packages, `bun.lock` -791 lines, build clean,
+`bun run test -u` 182 of 182. Read `plans/fork-maintenance-research.md` for the
+reason. The still-open deletions are the `kimaki/` files (voice calls, analytics)
+and the self-hosted refactor.
 
-### 2. Move the running bot to the fork
+### 2. Move the running bot to the fork — done (2026-10-18)
 
-Confirm with the user which install path they want: a global `bun link`, a
-`bun install -g` of the fork, or running from the clone. Then keep the existing
-data dir (`~/.kimaki`; the SQLite format is unchanged), start the fork's bot, and
-let it rewrite the OpenCode plugin shim (it points the shim at `dist/` on start).
+Install path: run from the clone. The deploy clone on knockon is
+`~/workspace/github.com/HT2Knock/kimaki` at `bun-runtime`. Bun 1.4.3 is at
+`~/.bun/bin/bun` (the unit PATH already had it).
 
-Done when: `kimaki status` reports `runtime: bun` and a Discord message gets a
-reply.
+The systemd user unit `~/dotfiles/.config/systemd/user/kimaki.service` now runs
+`/home/t2knock/.bun/bin/bun .../HT2Knock/kimaki/kimaki/dist/cli.js --gateway
+--if-not-running`. Credential mode is unchanged (still gateway). The data dir is
+still `~/.kimaki`; the DB is `user_version=1` and the fork's `DB_VERSION` is 1,
+so no data migration was needed. A copy of the live DB was opened and migrated
+under `bun:sqlite` before the switch.
+
+Verified: `kimaki status` reports `runtime: bun`, the bot is ready as
+Kimaki#4819, OpenCode 2.0.32 is connected, and the plugin shims point at the
+fork. A Discord reply is the user's check.
+
+Rollback: `/tmp/kimaki.service.bak` is the old unit, and
+`~/.kimaki.bak-20261018-164809` is the data dir before the switch.
 
 ### 3. Close the deferred items
 
-Push `bun-runtime` (or hand off again with a `wip/` snapshot), decide the
-submodule scripts, and decide whether Node-for-install is acceptable.
+`bun-runtime` is pushed to `origin`. Still open: the submodule scripts, whether
+Node-for-install is acceptable, and the deferred feature work below.
 
 ## Decisions from the user (2026-10-18)
 
 - Voice calls: **never used; remove.**
 - Voice messages and TTS: not in use yet, but **keep them**.
-- Handoff: **keep the commits local**; the next session runs on this machine.
+- Handoff: first keep the commits local, then **push `bun-runtime`** to run it on
+  knockon.
+- Trim method: **exclude the orphan workspaces**, do not delete them.
+- Fork base: **rebase onto `kimaki@1.2.0`**, not `e8aceec5`.
+- Order of work: **migrate the running bot to the fork on Bun first.** The
+  self-hosted switch and the rest of the fork rewrite wait; they need more
+  thought.
 
 ## Decision: gateway or self-hosted
 
-**Self-hosted, on knockon.** The bot uses the author's shared bot today.
-Self-hosted (own Discord app) removes the external dependency and the gateway
-branch in `credentials.ts`, at the cost of a one-time Discord app setup.
-Everything else in `plans/fork-feature-trim.md` is removable either way.
+**Self-hosted, on knockon — deferred (2026-10-18).** The bot uses the author's
+shared bot today. Self-hosted (own Discord app) removes the external dependency
+and the gateway branch in `credentials.ts`, at the cost of a one-time Discord app
+setup. The fork keeps the gateway path for now, so the migration did not change
+the credential mode. Everything else in `plans/fork-feature-trim.md` is
+removable either way.
 
 ## Where to run things
 
