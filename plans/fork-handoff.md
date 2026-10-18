@@ -149,9 +149,23 @@ script, which calls `bun` by name, so the SSH command needs
 `export PATH=$HOME/.bun/bin:$PATH` first; `/usr/bin/bash: bun: command not found`
 otherwise. The unit file already has that on PATH.
 
-`kimaki/` also moved from `string-dedent` to `dedent` in `304e97e3`; `traforo`
-(a submodule) and `opencode-auto-mode` (an excluded workspace) still use
-`string-dedent`.
+**Do not switch `kimaki/` from `string-dedent` to `dedent` without handling its
+three differences.** `304e97e3` made that switch and `505f329a` reverts it after
+a cross-model review found what a first pass missed:
+
+- `dedent` computes the common indentation over the interpolated values too.
+  `string-dedent` ignores expressions. Multi-line values (AGENTS.md, skills,
+  `git ls-files` output, a sleep reason) therefore shift the whole block.
+- `dedent` unescapes `\n`, `\t`, `\u…` in the finished string, interpolated
+  values included, so it rewrites user text.
+- `dedent` trims all outer whitespace; `string-dedent` removes only the opening
+  and closing line. Templates that start with a blank line lose it
+  (`scheduledTaskSection`, `BUTTONS_SHOWN`).
+- `dedent` reads the raw template text, so a literal `\s` becomes `\\s`. That
+  changed the base prompt line `rg -i 'error\s+42|panic'` for every session.
+
+`traforo` (a submodule) and `opencode-auto-mode` (an excluded workspace) still
+use `string-dedent`.
 
 ## Decisions from the user (2026-10-18)
 
