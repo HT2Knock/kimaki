@@ -134,6 +134,13 @@ of the same use.
 `bun-runtime` is pushed to `origin`. Still open: the submodule scripts, whether
 Node-for-install is acceptable, and the deferred feature work below.
 
+### 4. Next session: drop Drizzle for Bun.SQL
+
+Planned, not started. See `plans/drop-drizzle.md`. Replaces `drizzle-orm` and
+`drizzle-kit` with the SQL client Bun ships (`new SQL("sqlite://...")` with
+tagged templates). 51 non-test call sites across 19 files, 14 tables, 10 nested
+relation queries. Accepted cost: a permanent downstream delta in the query code.
+
 ## Decisions from the user (2026-10-18)
 
 - Voice calls: **never used; remove.**
@@ -229,6 +236,8 @@ self-hosted on knockon.
 - `plans/fork-maintenance-research.md` — best practices for a fork of this
   shape: rebase onto upstream release tags, exclude workspaces instead of
   deleting them, and the self-hosted and Bun details.
+- `plans/drop-drizzle.md` — the next-session plan to replace `drizzle-orm` with
+  `Bun.SQL`.
 - `decisions.tsv` — one row per decision, with evidence.
 - `~/Documents/T2Knock/JT-notes/tech/remote_agent_iphone7.md` — the setup.
 - `~/Documents/T2Knock/JT-notes/routines/daily-workout-coach.md` — a live routine.
