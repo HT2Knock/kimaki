@@ -3,15 +3,25 @@
 ## Context
 
 This is `HT2Knock/kimaki`, a personal fork of `remorses/kimaki`. The user runs
-Kimaki for its Discord agent orchestration. Upstream targets many installs
-(hosted gateway, kimaki.dev onboarding, a Slack bridge, voice calls); the fork's
-use case is smaller: **one user, self-hosted** (own Discord app), **macOS and
-knockon**, **Bun only**.
+Kimaki for one job: drive OpenCode sessions on `knockon` from Discord, mostly
+from an iPhone 7. The use case is written down in
+`~/Documents/T2Knock/JT-notes/tech/remote_agent_iphone7.md` (the setup) and
+`~/Documents/T2Knock/JT-notes/routines/daily-workout-coach.md` (a Kimaki
+routine). Read those before deciding what to cut.
+
+The setup today: Discord → Kimaki on `knockon` → OpenCode managed service
+(`serve --service` on `127.0.0.1:49374`). The bot runs in **gateway mode**: the
+author's shared bot through `discord-gateway.kimaki.dev`. Routines (scheduled
+prompts) are in use, and notifications arrive in Discord threads.
+
+The fork is **Bun only**. Upstream also carries the hosted service (gateway
+proxy, kimaki.dev), a Slack bridge, voice calls and a realtime SDK. Those are not
+part of this use case.
 
 Two goals, in order:
 
 1. Trim the repo to the used subset (`plans/fork-feature-trim.md`).
-2. Move the running bot to the fork on Bun (this document, next steps).
+2. Move the running bot to the fork on Bun (next steps).
 
 ## State
 
@@ -66,15 +76,23 @@ reply.
 Push `bun-runtime` (or hand off again with a `wip/` snapshot), decide the
 submodule scripts, and decide whether Node-for-install is acceptable.
 
-## Open questions for the user
+## Decisions from the user (2026-10-18)
 
-- Which optional features are in use: voice calls, voice messages, TTS,
-  `kimaki tunnel`?
-- Self-hosted only, or keep the gateway path?
-- Keep the docs site (it lives in `website/`)?
+- Voice calls: **never used; remove.**
+- Voice messages and TTS: not in use yet, but **keep them**.
+- Handoff: **keep the commits local**; the next session runs on this machine.
+
+## Open question
+
+**Gateway mode or self-hosted?** The bot uses the author's shared bot today.
+Self-hosted (own Discord app) removes the external dependency and the gateway
+branch in `credentials.ts`, at the cost of a one-time Discord app setup.
+Everything else in `plans/fork-feature-trim.md` is removable either way.
 
 ## Pointers
 
 - `AGENTS.md` — repo rules and entry points.
 - `plans/fork-feature-trim.md` — keep/remove analysis with sizes.
 - `decisions.tsv` — one row per decision, with evidence.
+- `~/Documents/T2Knock/JT-notes/tech/remote_agent_iphone7.md` — the setup.
+- `~/Documents/T2Knock/JT-notes/routines/daily-workout-coach.md` — a live routine.
