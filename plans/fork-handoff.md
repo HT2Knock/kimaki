@@ -82,9 +82,9 @@ submodule scripts, and decide whether Node-for-install is acceptable.
 - Voice messages and TTS: not in use yet, but **keep them**.
 - Handoff: **keep the commits local**; the next session runs on this machine.
 
-## Open question
+## Decision: gateway or self-hosted
 
-**Gateway mode or self-hosted?** The bot uses the author's shared bot today.
+**Self-hosted, on knockon.** The bot uses the author's shared bot today.
 Self-hosted (own Discord app) removes the external dependency and the gateway
 branch in `credentials.ts`, at the cost of a one-time Discord app setup.
 Everything else in `plans/fork-feature-trim.md` is removable either way.
@@ -119,11 +119,42 @@ Verified facts:
 - `plans/remote-opencode-servers.md` covers exactly these gaps, but it is V1
   (Prisma + hrana) and not ported to V2. Treat it as a roadmap.
 
-Recommendation: go self-hosted, and keep the bot and OpenCode on the same host
-(knockon) until the remote service file is verified. If the bot must live on
-`t2knock-lab`, do it in two steps: first prove the remote service file works
-(point `KIMAKI_OPENCODE_SERVICE_FILE` at knockon's Tailscale URL and password,
-then send a Discord message), then accept or port the worktree gap.
+## Self-hosted switch: what survives
+
+Fear to answer: "hosting my own bot removes Kimaki from the server and I lose
+all the projects and setup."
+
+- Channels, threads and history live in **Discord**, not in Kimaki. Installing a
+  different bot app does not delete them.
+- The channel-to-project and thread-to-session mapping lives in the local SQLite
+  `~/.kimaki/kimaki.db` (`channel_directories`, `thread_sessions`) and persists.
+  `onboarding.ts` treats existing project mappings as already configured, so it
+  does not create a new default channel or touch the existing ones.
+- What changes is the **bot user** that replies. Name the new app "Kimaki" and
+  give it the same avatar and it looks the same. The old app can stay in the
+  server during the switch; run one bot at a time (two would both answer). Remove
+  the old app once the new one works, which also removes its slash commands.
+- Steps: create a Discord app, enable Message Content Intent, reset the token,
+  then run `kimaki --restart-onboarding` (self-hosted asks for the token) or set
+  `KIMAKI_BOT_TOKEN`. Open the install URL to add the new bot.
+- Loss: the free Whisper transcription in `voice.ts` is gateway-only, so voice
+  messages would need an OpenAI or Gemini key.
+
+## Discord needs outbound only
+
+The bot uses discord.js over the **outbound** Gateway WebSocket
+(`GatewayIntentBits` in `main.ts`). Slash commands and buttons arrive on that
+same socket. There is no inbound port and no interactions webhook, so no public
+endpoint and no tunnel are needed; the only local listener is the lock server on
+`127.0.0.1`. The bot works from behind NAT or CGNAT, and discord.js reconnects
+and resumes on a dropped link. `opentunnel`/`traforo` is for exposing the
+OpenCode service to remote machines, which one host does not need.
+
+## Recommendation
+
+knockon hosts everything: the bot, OpenCode and the project files.
+`t2knock-lab` stays out (old hardware, and it shares knockon's internet). Go
+self-hosted on knockon.
 
 ## Pointers
 
