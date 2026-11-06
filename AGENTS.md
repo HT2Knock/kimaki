@@ -164,7 +164,7 @@ workflow when changing a submodule:
 2. only then bump the gitlink in kimaki (`git add gateway-proxy` etc.) and commit that pointer update
 3. before changing a gitlink, prove the remote has the target SHA, e.g. `gh api repos/remorses/gateway-proxy/commits/<sha> --jq .sha` (must not 422)
 
-when pulling submodules and they jump to a new commit, commit that pointer update right away before other work. otherwise critique diffs later include the noisy submodule jump along with the real changes.
+when pulling submodules and they jump to a new commit, commit that pointer update right away before other work. otherwise later diff reviews include the noisy submodule jump along with the real changes.
 
 if a submodule tip was lost on the remote but still exists in a local checkout, restore it by fast-forwarding (or cherry-picking) the branch back onto the missing tip and pushing. do not "fix" kimaki by pointing at an older reachable commit unless those tip commits are intentionally abandoned.
 
