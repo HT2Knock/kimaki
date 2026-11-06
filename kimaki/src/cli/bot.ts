@@ -11,7 +11,7 @@ import dedent from 'string-dedent'
 import type { Goke } from 'goke'
 
 import { distCliEntry, writeAutostartScript } from '../autostart.ts'
-import { parseDisabledSkills } from '../builtin-skills.ts'
+import { BUILTIN_SKILL_IDS, parseDisabledSkills } from '../builtin-skills.ts'
 import { callBot, DEFAULT_LOCK_PORT, RESTART_EXIT_CODE, startLockServer } from '../lock-server.ts'
 import { parseDuration } from '../duration.ts'
 import { createLogger, setLogFile } from '../logger.ts'
@@ -94,7 +94,7 @@ export function registerStartCommand(cli: Goke) {
     .option('--worktrees', 'Use a fresh Git worktree for new sessions unless the channel overrides it')
     .option('--allow-all-users', 'Every server member can use the bot (role "no-kimaki" still denies; provider login stays admin-only)')
     .option('--voice <name>', 'Voice of voice calls, saved for later starts (e.g. cove, juniper, sol). "default" resets it')
-    .option('--disable-skills <list>', 'Built-in Kimaki skills to turn off: "all" or a comma separated list (kimaki-debug,kimaki-tunnel)')
+    .option('--disable-skills <list>', `Built-in Kimaki skills to turn off: "all" or a comma separated list (${BUILTIN_SKILL_IDS.join(',')})`)
     .option('--no-analytics', 'Disable anonymous usage analytics (same as KIMAKI_STRADA_ENABLED=0)')
     .option('--if-not-running', 'Start only if no bot runs; never stop the running one (used by autostart)')
     .action(async (options) => {
